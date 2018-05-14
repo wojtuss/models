@@ -2,6 +2,7 @@ import sys
 import time
 import unittest
 import contextlib
+import argparse
 
 import paddle.fluid as fluid
 import paddle.v2 as paddle
@@ -12,6 +13,56 @@ from nets import cnn_net
 from nets import lstm_net
 from nets import gru_net
 
+nets = {'bow': bow_net, 'cnn': cnn_net, 'lstm': lstm_net, 'gru': gru_net}
+# learning rates
+lrs = {'bow': 0.002, 'cnn': 0.01, 'lstm': 0.05, 'gru': 0.05}
+
+def parse_args():
+    parser = argparse.ArgumentParser("Run inference.")
+    parser.add_argument(
+        'topology',
+        type=str,
+        choices=['bow', 'cnn', 'lstm', 'gru'],
+        help='Topology used for the model (bow/cnn/lstm/gru).')
+    parser.add_argument(
+        '--batch_size',
+        type=int,
+        default=128,
+        help='The size of a batch. (default: %(default)d, usually: 128 for "bow" and "gru", 4 for "cnn" and "lstm")')
+    parser.add_argument(
+        '--device',
+        type=str,
+        default='GPU',
+        choices=['CPU', 'GPU'],
+        help='The device type. (default: %(default)s)')
+    parser.add_argument(
+        '--model_save_dir',
+        type=str,
+        default='./model',
+        help='A directory for saving models. (default: %(default)s)')
+    parser.add_argument(
+        '--num_passes',
+        type=int,
+        default=30,
+        help='The number of epochs. (default: %(default)d)')
+    parser.add_argument(
+        '--use_mkldnn',
+        action='store_true',
+        help='If set, use mkldnn library for speed up.')
+    parser.add_argument(
+        '--parallel',
+        action='store_true',
+        help='If set, do calculation in parallel.')
+    args = parser.parse_args()
+    return args
+
+
+def print_arguments(args):
+    print('-----------  Configuration Arguments -----------')
+    for arg, value in sorted(vars(args).iteritems()):
+        print('%s: %s' % (arg, value))
+    print('------------------------------------------------')
+
 
 def train(train_reader,
           word_dict,
@@ -21,7 +72,8 @@ def train(train_reader,
           save_dirname,
           lr=0.2,
           batch_size=128,
-          pass_num=30):
+          pass_num=30,
+          use_mkldnn=False):
     """
     train network
     """
@@ -31,13 +83,15 @@ def train(train_reader,
     label = fluid.layers.data(name="label", shape=[1], dtype="int64")
 
     if not parallel:
-        cost, acc, prediction = network(data, label, len(word_dict))
+        cost, acc, prediction = network(data, label, len(word_dict),
+                                        use_mkldnn=use_mkldnn)
     else:
         places = fluid.layers.get_places(device_count=2)
         pd = fluid.layers.ParallelDo(places)
         with pd.do():
             cost, acc, prediction = network(
-                pd.read_input(data), pd.read_input(label), len(word_dict))
+                pd.read_input(data), pd.read_input(label), len(word_dict),
+                use_mkldnn=use_mkldnn)
 
             pd.write_output(cost)
             pd.write_output(acc)
@@ -74,58 +128,24 @@ def train(train_reader,
         fluid.io.save_inference_model(epoch_model, ["words", "label"], acc, exe)
 
 
-def train_net():
+def train_net(args):
     word_dict, train_reader, test_reader = utils.prepare_data(
         "imdb", self_dict=False, batch_size=128, buf_size=50000)
 
-    if sys.argv[1] == "bow":
-        train(
-            train_reader,
-            word_dict,
-            bow_net,
-            use_cuda=False,
-            parallel=False,
-            save_dirname="bow_model",
-            lr=0.002,
-            pass_num=30,
-            batch_size=128)
-    elif sys.argv[1] == "cnn":
-        train(
-            train_reader,
-            word_dict,
-            cnn_net,
-            use_cuda=True,
-            parallel=False,
-            save_dirname="cnn_model",
-            lr=0.01,
-            pass_num=30,
-            batch_size=4)
-    elif sys.argv[1] == "lstm":
-        train(
-            train_reader,
-            word_dict,
-            lstm_net,
-            use_cuda=True,
-            parallel=False,
-            save_dirname="lstm_model",
-            lr=0.05,
-            pass_num=30,
-            batch_size=4)
-    elif sys.argv[1] == "gru":
-        train(
-            train_reader,
-            word_dict,
-            lstm_net,
-            use_cuda=True,
-            parallel=False,
-            save_dirname="gru_model",
-            lr=0.05,
-            pass_num=30,
-            batch_size=128)
-    else:
-        print("network name cannot be found!")
-        sys.exit(1)
+    train(
+        train_reader,
+        word_dict,
+        nets[args.topology],
+        use_cuda=(args.device == "GPU"),
+        parallel=args.parallel,
+        save_dirname=args.model_save_dir,
+        lr=lrs[args.topology],
+        pass_num=args.num_passes,
+        batch_size=args.batch_size,
+        use_mkldnn=args.use_mkldnn)
 
 
 if __name__ == "__main__":
-    train_net()
+    args = parse_args()
+    print_arguments(args)
+    train_net(args)
