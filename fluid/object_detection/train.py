@@ -17,6 +17,7 @@ add_arg = functools.partial(add_arguments, argparser=parser)
 add_arg('learning_rate',    float, 0.001,     "Learning rate.")
 add_arg('batch_size',       int,   64,        "Minibatch size.")
 add_arg('num_passes',       int,   120,       "Epoch number.")
+add_arg('iterations',       int,   0,       "Max number of batches, 0 means all.")
 add_arg('use_gpu',          bool,  True,      "Whether use GPU.")
 add_arg('parallel',         bool,  True,      "Parallel.")
 add_arg('dataset',          str,   'pascalvoc', "coco2014, coco2017, and pascalvoc.")
@@ -32,6 +33,8 @@ add_arg('mean_value_B',     float, 127.5,  "Mean value for B channel which will 
 add_arg('mean_value_G',     float, 127.5,  "Mean value for G channel which will be subtracted.")  #116.78
 add_arg('mean_value_R',     float, 127.5,  "Mean value for R channel which will be subtracted.")  #103.94
 add_arg('is_toy',           int,   0, "Toy for quick debug, 0 means using all data, while n means using only n sample.")
+parser.add_argument('--use_mkldnn', action='store_true', help='If set, use MKL-DNN library.')
+parser.add_argument('--test', action='store_true', help='If set, test the model.')
 #yapf: enable
 
 
@@ -61,7 +64,11 @@ def train(args,
     difficult = fluid.layers.data(
         name='gt_difficult', shape=[1], dtype='int32', lod_level=1)
 
-    locs, confs, box, box_var = mobile_net(num_classes, image, image_shape)
+    use_cudnn = True if args.use_gpu else False
+
+    locs, confs, box, box_var = mobile_net(num_classes, image, image_shape,
+                                           use_mkldnn=args.use_mkldnn,
+                                           use_cudnn=use_cudnn)
     nmsed_out = fluid.layers.detection_output(
         locs, confs, box, box_var, nms_threshold=args.nms_threshold)
     loss = fluid.layers.ssd_loss(locs, confs, gt_box, gt_label, box,
@@ -113,9 +120,10 @@ def train(args,
             return os.path.exists(os.path.join(pretrained_model, var.name))
         fluid.io.load_vars(exe, pretrained_model, predicate=if_exist)
 
+    use_cuda = True if args.use_gpu else False
     if args.parallel:
         train_exe = fluid.ParallelExecutor(
-            use_cuda=args.use_gpu, loss_name=loss.name)
+            use_cuda=use_cuda, loss_name=loss.name)
 
     train_reader = paddle.batch(
         reader.train(data_args, train_file_list), batch_size=batch_size)
@@ -153,6 +161,8 @@ def train(args,
         prev_start_time = start_time
         end_time = 0
         for batch_id, data in enumerate(train_reader()):
+            if args.iterations and batch_id == args.iterations:
+                break
             prev_start_time = start_time
             start_time = time.time()
             if len(data) < (devices_num * 2):
@@ -167,13 +177,17 @@ def train(args,
                                   fetch_list=[loss])
             end_time = time.time()
             loss_v = np.mean(np.array(loss_v))
-            if batch_id % 20 == 0:
+            if batch_id % 20 == 0 or batch_id == args.iterations - 1:
                 print("Pass {0}, batch {1}, loss {2}, time {3}".format(
                     pass_id, batch_id, loss_v, start_time - prev_start_time))
-        best_map = test(pass_id, best_map)
+        if args.test:
+            best_map = test(pass_id, best_map)
         if pass_id % 10 == 0 or pass_id == num_passes - 1:
+            print("saving model")
             save_model(str(pass_id))
-    print("Best test map {0}".format(best_map))
+
+    if args.test:
+        print("Best test map {0}".format(best_map))
 
 
 if __name__ == '__main__':
