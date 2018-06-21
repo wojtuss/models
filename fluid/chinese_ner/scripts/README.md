@@ -1,3 +1,6 @@
+## Purpose of this directory
+The purpose of this directory is to provide exemplary execution commands. They are inside bash scripts described below.
+
 ## Preparation
 To add execution permissions for shell scripts, run in this directory:
 `chmod +x *.sh`
