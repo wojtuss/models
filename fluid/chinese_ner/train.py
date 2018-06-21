@@ -53,10 +53,6 @@ def parse_args():
         type=int,
         default=100,
         help='The number of epochs. (default: %(default)d)')
-    parser.add_argument(
-        '--use_mkldnn',
-        action='store_true',
-        help='If set, use mkldnn library for speed up.')
     args = parser.parse_args()
     return args
 
@@ -88,7 +84,7 @@ def to_lodtensor(data, place):
     return res
 
 
-def ner_net(word_dict_len, label_dict_len, use_mkldnn=False):
+def ner_net(word_dict_len, label_dict_len):
     IS_SPARSE = False
     word_dim = 32
     mention_dict_len = 57
@@ -155,7 +151,7 @@ def ner_net(word_dict_len, label_dict_len, use_mkldnn=False):
                 initializer=fluid.initializer.Uniform(
                     low=-init_bound, high=init_bound),
                 regularizer=fluid.regularizer.L2DecayRegularizer(
-                    regularization_coeff=1e-4)), use_mkldnn=use_mkldnn)
+                    regularization_coeff=1e-4)))
         gru = fluid.layers.dynamic_gru(
             input=pre_gru,
             size=grnn_hidden,
@@ -172,7 +168,7 @@ def ner_net(word_dict_len, label_dict_len, use_mkldnn=False):
                 initializer=fluid.initializer.Uniform(
                     low=-init_bound, high=init_bound),
                 regularizer=fluid.regularizer.L2DecayRegularizer(
-                    regularization_coeff=1e-4)), use_mkldnn=use_mkldnn)
+                    regularization_coeff=1e-4)))
         gru_r = fluid.layers.dynamic_gru(
             input=pre_gru_r,
             size=grnn_hidden,
@@ -192,7 +188,7 @@ def ner_net(word_dict_len, label_dict_len, use_mkldnn=False):
                 initializer=fluid.initializer.Uniform(
                     low=-init_bound, high=init_bound),
                 regularizer=fluid.regularizer.L2DecayRegularizer(
-                    regularization_coeff=1e-4)), use_mkldnn=use_mkldnn)
+                    regularization_coeff=1e-4)))
 
         crf_cost = fluid.layers.linear_chain_crf(
             input=emission,
@@ -263,8 +259,7 @@ def main(args):
     startup = fluid.Program()
     with fluid.program_guard(main, startup):
         avg_cost, feature_out, word, mention, target = ner_net(
-                args.word_dict_len, args.label_dict_len,
-                use_mkldnn=args.use_mkldnn)
+                args.word_dict_len, args.label_dict_len)
 
         sgd_optimizer = fluid.optimizer.SGD(learning_rate=1e-3)
         sgd_optimizer.minimize(avg_cost)
