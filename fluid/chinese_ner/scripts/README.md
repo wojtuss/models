@@ -2,14 +2,25 @@
 To add execution permissions for shell scripts, run in this directory:
 `chmod +x *.sh`
 
+## Performance tips
+Use the below flags for best performance:
+```
+KMP_AFFINITY=granularity=fine,compact,1,0
+OMP_NUM_THREADS=<num_of_physical_threads>
+```
+
 ## Training
 ### CPU with mkldnn
+Run:
 `train_profile_mkldnn.sh`
 ### CPU without mkldnn
+Run:
 `train_profile.sh`
 
 ## Inference
 ### CPU with mkldnn
+Run:
 `infer_profile_mkldnn.sh`
 ### CPU without mkldnn
+Run:
 `infer_profile.sh`
