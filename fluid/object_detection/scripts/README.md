@@ -57,7 +57,7 @@ train_coco2014.sh
 ```
 
 ## Inference
-Depending on the dataset you trained
+The training is run for 1 pass measuring time by `time` program.
 ### CPU with mkldnn
 Depending on the dataset you want to train on, run one of:
 ```
