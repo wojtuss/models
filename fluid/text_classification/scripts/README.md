@@ -16,7 +16,7 @@ For example, you can export them, or add them inside the specific files.
 ## Training
 The training is run for 1 pass measuring time by `time` program.
 ### CPU with mkldnn
-Depending on the model yuu want to profile, run on of:
+Depending on the model you want to profile, run on of:
 ```
 train_bow_mkldnn.sh
 train_cnn_mkldnn.sh
