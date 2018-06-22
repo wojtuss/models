@@ -3,7 +3,9 @@ The purpose of this directory is to provide exemplary execution commands. They a
 
 ## Preparation
 To add execution permissions for shell scripts, run in this directory:
-`chmod +x *.sh`
+```
+chmod +x *.sh
+```
 
 To be able to run training on coco, install pycocotools and cython:
 ```
