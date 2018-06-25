@@ -254,10 +254,10 @@ def train(model, args):
 
     fake_train_data = [(np.random.rand(dshape[0] * dshape[1] * dshape[2]).
                 astype(np.float32), np.random.randint(1, class_dim))
-                for _ in range(5000)]
+                for _ in range(1)]
     fake_test_data = [(np.random.rand(dshape[0] * dshape[1] * dshape[2]).
                 astype(np.float32), np.random.randint(1, class_dim))
-                for _ in range(1000)]
+                for _ in range(1)]
 
     input = fluid.layers.data(name='data', shape=dshape, dtype='float32')
     label = fluid.layers.data(name='label', shape=[1], dtype='int64')
@@ -342,42 +342,65 @@ def train(model, args):
         accuracy.reset()
         train_accs = []
         train_losses = []
+        batch_times = []
+        fpses = []
         iters = 0
-        num_samples = 0
-        start_time = time.time()
+        total_samples = 0
+        train_start_time = time.time()
         for data in train_reader():
             if args.iterations > 0 and iters == args.iterations + args.skip_batch_num:
                 break
             if iters == args.skip_batch_num:
                 profiler.reset_profiler()
-                start_time = time.time()
-                num_samples = 0
+                total_samples = 0
+                train_start_time = time.time()
             if not args.use_fake_data:
                 image = np.array(map(lambda x: x[0].reshape(dshape),
                                      data)).astype('float32')
                 label = np.array(map(lambda x: x[1], data)).astype('int64')
                 label = label.reshape([-1, 1])
 
+            start = time.time()
             loss, acc, weight = exe.run(
                 fluid.default_main_program(),
                 feed={'data': image,
                       'label': label},
                 fetch_list=[avg_cost, batch_acc, batch_size_tensor])
+            batch_time = time.time() - start
+            samples = len(label)
+            total_samples += samples
+            fps = samples / batch_time
             iters += 1
-            num_samples += len(label)
             accuracy.add(value=acc, weight=weight)
             train_losses.append(loss)
             train_accs.append(acc)
+            batch_times.append(batch_time)
+            fpses.append(fps)
             appx = ' (warm-up)' if iters <= args.skip_batch_num else ''
             print("Pass: %d, Iter: %d%s, Loss: %f, Accuracy: %f, FPS: %.5f img/s" %
-                  (pass_id, iters, appx, loss, acc, num_samples / (time.time() - start_time)))
+                  (pass_id, iters, appx, loss, acc, fps))
 
-        print("Pass: %d, Loss: %f, Train Accuray: %f\n" %
-              (pass_id, np.mean(train_losses), np.mean(train_accs)))
-        train_elapsed = time.time() - start_time
-        examples_per_sec = num_samples / train_elapsed
-        print('\nTotal examples: %d, total time: %.5f, %.5f examples/sec\n' %
-              (num_samples, train_elapsed, examples_per_sec))
+        # Postprocess benchmark data
+        latencies = batch_times[args.skip_batch_num:]
+        latency_avg = np.average(latencies)
+        latency_std = np.std(latencies)
+        latency_pc99 = np.percentile(latencies, 99)
+        fps_avg = np.average(fpses)
+        fps_std = np.std(fpses)
+        fps_pc01 = np.percentile(fpses, 1)
+        train_total_time = time.time() - train_start_time
+        examples_per_sec = total_samples / train_total_time
+
+        # Benchmark output
+        print("\nPass %d statistics:" % (pass_id))
+        print("Loss: %f, Train Accuracy: %f" %
+              (np.mean(train_losses), np.mean(train_accs)))
+        print('Avg fps: %.5f, std fps: %.5f, fps for 99pc latency: %.5f' %
+            (fps_avg, fps_std, fps_pc01))
+        print('Avg latency: %.5f, std latency: %.5f, 99pc latency: %.5f' %
+            (latency_avg, latency_std, latency_pc99))
+        print('Total examples: %d, total time: %.5f, total examples/sec: %.5f\n' %
+              (total_samples, train_total_time, examples_per_sec))
 
         # Save model
         if args.save_model:

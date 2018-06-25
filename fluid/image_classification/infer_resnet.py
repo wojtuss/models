@@ -169,32 +169,35 @@ def infer(args):
     iters = 0
     batch_times = []
     fpses = []
-    start = time.time()
+    total_samples = 0
+    infer_start_time = time.time()
     for data in infer_reader():
         if args.iterations > 0 and iters == args.iterations + args.skip_batch_num:
             break
         if iters == args.skip_batch_num:
             profiler.reset_profiler()
+            total_samples = 0
+            infer_start_time = time.time()
         if not args.use_fake_data:
             image = np.array(map(lambda x: x[0].reshape(dshape),
                                     data)).astype("float32")
             label = np.array(map(lambda x: x[1], data)).astype("int64")
             label = label.reshape([-1, 1])
 
+        start = time.time()
         acc, weight = exe.run(infer_program,
                       feed={feed_dict[0]:image,feed_dict[1]:label},
                       fetch_list=fetch_targets)
 
+        batch_time = time.time() - start
+        samples = len(label)
+        total_samples += samples
+        fps = samples / batch_time
+        batch_times.append(batch_time)
+        fpses.append(fps)
         infer_accuracy.update(value=acc, weight=weight)
         infer_acc = infer_accuracy.eval()
         iters += 1
-        num_samples = len(label)
-
-        batch_time = time.time() - start
-        start = time.time()
-        fps = num_samples / batch_time
-        batch_times.append(batch_time)
-        fpses.append(fps)
         appx = ' (warm-up)' if iters <= args.skip_batch_num else ''
         print("Iteration: %d%s, accuracy: %f, latency: %.5f s, fps: %f" %
               (iters, appx, np.mean(infer_acc), batch_time, fps))
@@ -207,14 +210,17 @@ def infer(args):
     fpses = fpses[args.skip_batch_num:]
     fps_avg = np.average(fpses)
     fps_std = np.std(fpses)
-    fps_pc99 = np.percentile(fpses, 1)
+    fps_pc01 = np.percentile(fpses, 1)
+    infer_total_time = time.time() - infer_start_time
+    examples_per_sec = total_samples / infer_total_time
 
     # Benchmark output
-    print('\nTotal examples (incl. warm-up): %d' % (iters * args.batch_size))
-    print('avg latency: %.5f, std latency: %.5f, 99pc latency: %.5f' %
+    print('\nAvg fps: %.5f, std fps: %.5f, fps for 99pc latency: %.5f' %
+            (fps_avg, fps_std, fps_pc01))
+    print('Avg latency: %.5f, std latency: %.5f, 99pc latency: %.5f' %
             (latency_avg, latency_std, latency_pc99))
-    print('avg fps: %.5f, std fps: %.5f, fps for 99pc latency: %.5f' %
-            (fps_avg, fps_std, fps_pc99))
+    print('Total examples: %d, total time: %.5f, total examples/sec: %.5f\n' %
+          (total_samples, infer_total_time, examples_per_sec))
 
 
 if __name__ == '__main__':
