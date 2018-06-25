@@ -143,9 +143,9 @@ def train(args):
             not os.path.exists(args.init_model_path):
         raise IOError("Invalid initial model path!")
     if args.checkpoints != '' and not os.path.exists(args.checkpoints):
-        os.mkdir(args.checkpoints)
+        os.makedirs(args.checkpoints)
     if args.infer_models != '' and not os.path.exists(args.infer_models):
-        os.mkdir(args.infer_models)
+        os.makedirs(args.infer_models)
 
     prediction, avg_cost, accuracy = stacked_lstmp_model(
         frame_dim=args.frame_dim,

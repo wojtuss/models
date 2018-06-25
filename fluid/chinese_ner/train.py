@@ -257,7 +257,7 @@ def test(test_exe, chunk_evaluator, inference_program, test_data, place,
 
 def main(args):
     if not os.path.exists(args.model_save_dir):
-        os.mkdir(args.model_save_dir)
+        os.makedirs(args.model_save_dir)
 
     main = fluid.Program()
     startup = fluid.Program()
