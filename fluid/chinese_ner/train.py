@@ -46,12 +46,12 @@ def parse_args():
     parser.add_argument(
         '--model_save_dir',
         type=str,
-        default='./model',
+        default='./output',
         help='A directory for saving models. (default: %(default)s)')
     parser.add_argument(
         '--num_passes',
         type=int,
-        default=100,
+        default=1000,
         help='The number of epochs. (default: %(default)d)')
     args = parser.parse_args()
     return args
