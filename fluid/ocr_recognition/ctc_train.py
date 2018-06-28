@@ -74,7 +74,7 @@ def train(args, data_reader=ctc_reader):
     error_evaluator.reset(exe)
     if args.parallel:
         train_exe = fluid.ParallelExecutor(
-            use_cuda=True, loss_name=sum_cost.name)
+            use_cuda=True if args.use_gpu else False, loss_name=sum_cost.name)
 
     fetch_vars = [sum_cost] + error_evaluator.metrics
 
@@ -147,7 +147,6 @@ def main():
     args = parser.parse_args()
     print_arguments(args)
     train(args, data_reader=ctc_reader)
-
 
 if __name__ == "__main__":
     main()
