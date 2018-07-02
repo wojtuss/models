@@ -7,12 +7,6 @@ To add execution permissions for shell scripts, run in this directory:
 chmod +x *.sh
 ```
 
-To be able to run **any script**, add 
-```
---use_fake_data
-```
-argument inside it!
-
 ## Performance tips
 Use the below environment flags for best performance:
 ```
