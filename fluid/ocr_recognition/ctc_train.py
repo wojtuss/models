@@ -22,6 +22,7 @@ add_arg('eval_period',       int,   15000,      "Evaluate period. '-1' means nev
 add_arg('save_model_dir',    str,   "./models", "The directory the model to be saved to.")
 add_arg('init_model',        str,   None,       "The init model file of directory.")
 add_arg('use_gpu',           bool,  True,      "Whether use GPU to train.")
+add_arg('use_mkldnn',        bool,  False,      "Whether to use mkldnn to train.")
 add_arg('min_average_window',int,   10000,     "Min average window.")
 add_arg('max_average_window',int,   12500,     "Max average window. It is proposed to be set as the number of minibatch in a pass.")
 add_arg('average_window',    float, 0.15,      "Average window.")

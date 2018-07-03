@@ -18,6 +18,7 @@ add_arg('input_images_dir',   str,  None,   "The directory of images.")
 add_arg('input_images_list',  str,  None,   "The list file of images.")
 add_arg('dict',               str,  None,   "The dictionary. The result of inference will be index sequence if the dictionary was None.")
 add_arg('use_gpu',            bool,  True,      "Whether use GPU to infer.")
+add_arg('use_mkldnn',         bool, False,  "Whether to use mkldnn. If set to True, set model_path option to a model trained with mkldnn.")
 add_arg('iterations',         int,  0,      "The number of iterations. Zero or less means whole test set. More than 0 means the test set might be looped until # of iterations is reached.")
 add_arg('profile',            bool, False,  "Whether to use profiling.")
 add_arg('skip_batch_num',     int,  0,      "The number of first minibatches to skip as warm-up for better performance test.")
@@ -31,7 +32,7 @@ def inference(args, infer=ctc_infer, data_reader=ctc_reader):
     data_shape = data_reader.data_shape()
     # define network
     images = fluid.layers.data(name='pixel', shape=data_shape, dtype='float32')
-    sequence = infer(images, num_classes,
+    sequence = infer(images, num_classes, use_mkldnn=args.use_mkldnn,
         use_cudnn=True if args.use_gpu else False)
     # data reader
     infer_reader = data_reader.inference(
