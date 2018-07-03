@@ -182,7 +182,6 @@ def ctc_train_net(images, label, args, num_classes):
     if args.average_window > 0:
         model_average = fluid.optimizer.ModelAverage(
             args.average_window,
-            params_grads,
             min_average_window=args.min_average_window,
             max_average_window=args.max_average_window)
     return sum_cost, error_evaluator, inference_program, model_average
