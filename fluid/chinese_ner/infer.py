@@ -117,9 +117,7 @@ def infer(args):
                         gold_tag = label_reverse_dict[data[sen_index][2][
                             word_index]]
                         tag = label_reverse_dict[np_data[tag_index][0]]
-                        #  print word + "\t" + gold_tag + "\t" + tag
                         word_index += 1
-                    #  print ""
                     word_count += word_index
                 if word_count <= 0:
                     print("Non-positive word_count! (%d)" % (word_count))
@@ -129,8 +127,6 @@ def infer(args):
                 word_counts[pass_id] += word_count
                 iters += 1
                 all_iters += 1
-                #  print("Pass: %d, iteration: %d (%d), latency: %.5f s" %
-                        #  (pass_id, iters, all_iters, batch_time))
             batch_times[pass_id] /= iters
             word_counts[pass_id] /= iters
             wps = word_counts[pass_id] / batch_times[pass_id]
