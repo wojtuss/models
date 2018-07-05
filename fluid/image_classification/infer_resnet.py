@@ -166,6 +166,7 @@ def infer(args):
         label = np.array(map(lambda x: x[1], data)).astype('int64')
         label = label.reshape([-1, 1])
 
+    infer_accs = []
     iters = 0
     batch_times = []
     fpses = []
@@ -197,6 +198,7 @@ def infer(args):
         fpses.append(fps)
         infer_accuracy.update(value=acc, weight=weight)
         infer_acc = infer_accuracy.eval()
+        infer_accs.append(infer_acc)
         iters += 1
         appx = ' (warm-up)' if iters <= args.skip_batch_num else ''
         print("Iteration: %d%s, accuracy: %f, latency: %.5f s, fps: %f" %
@@ -213,14 +215,17 @@ def infer(args):
     fps_pc01 = np.percentile(fpses, 1)
     infer_total_time = time.time() - infer_start_time
     examples_per_sec = total_samples / infer_total_time
+    infer_accs = infer_accs[args.skip_batch_num:]
+    acc_avg = np.mean(infer_accs)
 
     # Benchmark output
     print('\nAvg fps: %.5f, std fps: %.5f, fps for 99pc latency: %.5f' %
             (fps_avg, fps_std, fps_pc01))
     print('Avg latency: %.5f, std latency: %.5f, 99pc latency: %.5f' %
             (latency_avg, latency_std, latency_pc99))
-    print('Total examples: %d, total time: %.5f, total examples/sec: %.5f\n' %
+    print('Total examples: %d, total time: %.5f, total examples/sec: %.5f' %
           (total_samples, infer_total_time, examples_per_sec))
+    print("Avg accuracy: %f\n" % (acc_avg))
 
 
 if __name__ == '__main__':
