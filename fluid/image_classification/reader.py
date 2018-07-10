@@ -32,7 +32,7 @@ def resize_short(img, target_size):
 def crop_image(img, target_size, center):
     width, height = img.size
     size = target_size
-    if center == True:
+    if center:
         w_start = (width - size) / 2
         h_start = (height - size) / 2
     else:
@@ -102,7 +102,8 @@ def process_image(sample, mode, color_jitter, rotate):
 
     img = Image.open(img_path)
     if mode == 'train':
-        if rotate: img = rotate_image(img)
+        if rotate:
+            img = rotate_image(img)
         img = random_crop(img, DATA_DIM)
     else:
         img = resize_short(img, target_size=256)
@@ -127,23 +128,29 @@ def process_image(sample, mode, color_jitter, rotate):
 
 
 def _reader_creator(file_list,
+                    data_dir,
                     mode,
                     shuffle=False,
                     color_jitter=False,
-                    rotate=False):
+                    rotate=False,
+                    cycle=False):
     def reader():
         with open(file_list) as flist:
             lines = [line.strip() for line in flist]
             if shuffle:
                 random.shuffle(lines)
-            for line in lines:
-                if mode == 'train' or mode == 'val':
-                    img_path, label = line.split()
-                    img_path = os.path.join(DATA_DIR, img_path)
-                    yield img_path, int(label)
-                elif mode == 'test':
-                    img_path = os.path.join(DATA_DIR, line)
-                    yield [img_path]
+            while True:
+                for line in lines:
+                    if mode == 'train' or mode == 'test':
+                        img_path, label = line.split()
+                        img_path = os.path.join(data_dir, img_path)
+                        yield img_path, int(label)
+                    elif mode == 'infer':
+                        img_path = os.path.join(data_dir, line)
+                        yield [img_path]
+
+                if not cycle:
+                    break
 
     mapper = functools.partial(
         process_image, mode=mode, color_jitter=color_jitter, rotate=rotate)
@@ -151,14 +158,15 @@ def _reader_creator(file_list,
     return paddle.reader.xmap_readers(mapper, reader, THREAD, BUF_SIZE)
 
 
-def train(file_list=TRAIN_LIST):
+def train(file_list=TRAIN_LIST, data_dir=DATA_DIR, cycle=False):
     return _reader_creator(
-        file_list, 'train', shuffle=True, color_jitter=False, rotate=False)
+        file_list, data_dir, 'train', shuffle=True, color_jitter=False, rotate=False,
+        cycle=cycle)
 
 
-def val(file_list=TEST_LIST):
-    return _reader_creator(file_list, 'val', shuffle=False)
+def test(file_list=TEST_LIST, data_dir=DATA_DIR, cycle=False):
+    return _reader_creator(file_list, data_dir, 'test', shuffle=False, cycle=cycle)
 
 
-def test(file_list):
-    return _reader_creator(file_list, 'test', shuffle=False)
+def infer(file_list, data_dir=DATA_DIR, cycle=False):
+    return _reader_creator(file_list, data_dir, 'infer', shuffle=False, cycle=cycle)

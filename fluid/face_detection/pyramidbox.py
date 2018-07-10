@@ -39,7 +39,11 @@ def conv_block(input, groups, filters, ksizes, strides=None, with_pool=True):
             act='relu')
     if with_pool:
         pool = fluid.layers.pool2d(
-            input=conv, pool_size=2, pool_type='max', pool_stride=2)
+            input=conv,
+            pool_size=2,
+            pool_type='max',
+            pool_stride=2,
+            ceil_mode=True)
         return conv, pool
     else:
         return conv
@@ -48,7 +52,7 @@ def conv_block(input, groups, filters, ksizes, strides=None, with_pool=True):
 class PyramidBox(object):
     def __init__(self,
                  data_shape,
-                 num_classes,
+                 num_classes=None,
                  use_transposed_conv2d=True,
                  is_infer=False,
                  sub_network=False):
@@ -77,10 +81,7 @@ class PyramidBox(object):
         if self.is_infer:
             return [self.image]
         else:
-            return [
-                self.image, self.face_box, self.head_box, self.gt_label,
-                self.difficult
-            ]
+            return [self.image, self.face_box, self.head_box, self.gt_label]
 
     def _input(self):
         self.image = fluid.layers.data(
@@ -92,8 +93,6 @@ class PyramidBox(object):
                 name='head_box', shape=[4], dtype='float32', lod_level=1)
             self.gt_label = fluid.layers.data(
                 name='gt_label', shape=[1], dtype='int32', lod_level=1)
-            self.difficult = fluid.layers.data(
-                name='gt_difficult', shape=[1], dtype='int32', lod_level=1)
 
     def _vgg(self):
         self.conv1, self.pool1 = conv_block(self.image, 2, [64] * 2, [3] * 2)
@@ -140,7 +139,8 @@ class PyramidBox(object):
                     stride=2,
                     groups=ch,
                     param_attr=w_attr,
-                    bias_attr=False)
+                    bias_attr=False,
+                    use_cudnn=True)
             else:
                 upsampling = fluid.layers.resize_bilinear(
                     conv1, out_shape=up_to.shape[2:])
@@ -148,6 +148,8 @@ class PyramidBox(object):
             b_attr = ParamAttr(learning_rate=2., regularizer=L2Decay(0.))
             conv2 = fluid.layers.conv2d(
                 up_to, ch, 1, act='relu', bias_attr=b_attr)
+            if self.is_infer:
+                upsampling = fluid.layers.crop(upsampling, shape=conv2)
             # eltwise mul
             conv_fuse = upsampling * conv2
             return conv_fuse
@@ -379,6 +381,7 @@ class PyramidBox(object):
             self.box_vars,
             overlap_threshold=0.35,
             neg_overlap=0.35)
+        face_loss.persistable = True
         head_loss = fluid.layers.ssd_loss(
             self.head_mbox_loc,
             self.head_mbox_conf,
@@ -388,18 +391,28 @@ class PyramidBox(object):
             self.box_vars,
             overlap_threshold=0.35,
             neg_overlap=0.35)
+        head_loss.persistable = True
         face_loss = fluid.layers.reduce_sum(face_loss)
+        face_loss.persistable = True
         head_loss = fluid.layers.reduce_sum(head_loss)
+        head_loss.persistable = True
         total_loss = face_loss + head_loss
+        total_loss.persistable = True
         return face_loss, head_loss, total_loss
 
-    def infer(self):
-        test_program = fluid.default_main_program().clone(for_test=True)
+    def infer(self, main_program=None):
+        if main_program is None:
+            test_program = fluid.default_main_program().clone(for_test=True)
+        else:
+            test_program = main_program.clone(for_test=True)
         with fluid.program_guard(test_program):
             face_nmsed_out = fluid.layers.detection_output(
                 self.face_mbox_loc,
                 self.face_mbox_conf,
                 self.prior_boxes,
                 self.box_vars,
-                nms_threshold=0.45)
+                nms_threshold=0.3,
+                nms_top_k=5000,
+                keep_top_k=750,
+                score_threshold=0.01)
         return test_program, face_nmsed_out

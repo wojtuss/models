@@ -143,9 +143,9 @@ def train(args):
             not os.path.exists(args.init_model_path):
         raise IOError("Invalid initial model path!")
     if args.checkpoints != '' and not os.path.exists(args.checkpoints):
-        os.mkdir(args.checkpoints)
+        os.makedirs(args.checkpoints)
     if args.infer_models != '' and not os.path.exists(args.infer_models):
-        os.mkdir(args.infer_models)
+        os.makedirs(args.infer_models)
 
     prediction, avg_cost, accuracy = stacked_lstmp_model(
         frame_dim=args.frame_dim,
@@ -159,7 +159,12 @@ def train(args):
     test_program = fluid.default_main_program().clone()
 
     #optimizer = fluid.optimizer.Momentum(learning_rate=args.learning_rate, momentum=0.9)
-    optimizer = fluid.optimizer.Adam(learning_rate=args.learning_rate)
+    optimizer = fluid.optimizer.Adam(
+        learning_rate=fluid.layers.exponential_decay(
+            learning_rate=args.learning_rate,
+            decay_steps=1879,
+            decay_rate=1 / 1.2,
+            staircase=True))
     optimizer.minimize(avg_cost)
 
     place = fluid.CPUPlace() if args.device == 'CPU' else fluid.CUDAPlace(0)
@@ -186,8 +191,11 @@ def train(args):
                 os.path.exists(args.val_label_lst)):
             return -1.0, -1.0
         # test data reader
-        test_data_reader = reader.AsyncDataReader(args.val_feature_lst,
-                                                  args.val_label_lst)
+        test_data_reader = reader.AsyncDataReader(
+            args.val_feature_lst,
+            args.val_label_lst,
+            -1,
+            split_sentence_threshold=1024)
         test_data_reader.set_transformers(ltrans)
         test_costs, test_accs = [], []
         for batch_id, batch_data in enumerate(
@@ -212,8 +220,11 @@ def train(args):
         return np.mean(test_costs), np.mean(test_accs)
 
     # train data reader
-    train_data_reader = reader.AsyncDataReader(args.train_feature_lst,
-                                               args.train_label_lst, -1)
+    train_data_reader = reader.AsyncDataReader(
+        args.train_feature_lst,
+        args.train_label_lst,
+        -1,
+        split_sentence_threshold=1024)
 
     train_data_reader.set_transformers(ltrans)
     # train
