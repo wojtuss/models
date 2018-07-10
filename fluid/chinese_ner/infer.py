@@ -119,10 +119,6 @@ def infer(args):
                         tag = label_reverse_dict[np_data[tag_index][0]]
                         word_index += 1
                     word_count += word_index
-                if word_count <= 0:
-                    print("Non-positive word_count! (%d)" % (word_count))
-                if batch_time <= 0:
-                    print("Non-positive batch time! (%f)" % (batch_time))
                 batch_times[pass_id] += batch_time
                 word_counts[pass_id] += word_count
                 iters += 1
