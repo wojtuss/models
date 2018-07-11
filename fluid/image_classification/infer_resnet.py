@@ -7,7 +7,7 @@ import numpy as np
 import time
 import os
 
-import paddle.v2 as paddle
+import paddle
 import paddle.fluid as fluid
 import paddle.fluid.profiler as profiler
 
@@ -130,7 +130,6 @@ def infer(args):
 
     place = fluid.CUDAPlace(0) if args.device == 'GPU' else fluid.CPUPlace()
     exe = fluid.Executor(place)
-    paddle.init(use_gpu = (args.device == 'GPU'))
 
     # load model
     [infer_program, feed_dict,
