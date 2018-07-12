@@ -7,7 +7,6 @@ import argparse
 
 import paddle.fluid as fluid
 import paddle.fluid.profiler as profiler
-import paddle.v2 as paddle
 
 import utils
 
@@ -28,6 +27,7 @@ def parse_args():
     parser.add_argument(
         '--model_path',
         type=str,
+        default='./model/epoch0',
         help='A directory with saved model.')
     parser.add_argument(
         '--skip_pass_num',
@@ -75,17 +75,21 @@ def infer(args):
         batch_times = [0] * total_passes
         word_counts = [0] * total_passes
         wpses = [0] * total_passes
+        acces = [0] * total_passes
         word_dict, train_reader, test_reader = utils.prepare_data(
             "imdb", self_dict=False, batch_size=args.batch_size,
             buf_size=50000)
-        total_acc = 0.0
-        total_count = 0
-        all_iters = 0
+        pass_acc = 0.0
+        pass_data_len = 0
+        total_data_len = 0
+        total_iters = 0
         for pass_id in range(total_passes):
-            if pass_id < args.skip_pass_num:
-                print("Warm-up pass.")
             if pass_id == args.skip_pass_num:
                 profiler.reset_profiler()
+                pass_acc = 0.0
+                pass_data_len = 0
+                total_data_len = 0
+                total_iters = 0
             iters = 0
             for data in test_reader():
                 if args.iterations and iters == args.iterations:
@@ -97,42 +101,47 @@ def infer(args):
                             return_numpy=True)
                 batch_time = time.time() - start
                 word_count = len([w for d in data for w in d[0]])
-                #  print("iter: {}, word_count: {}".format(iters, word_count))
                 batch_times[pass_id] += batch_time
                 word_counts[pass_id] += word_count
                 iters += 1
-                all_iters += 1
-                total_acc += acc[0] * len(data)
-                total_count += len(data)
+                total_iters += 1
+                pass_acc += acc[0] * len(data)
+                pass_data_len += len(data)
 
             batch_times[pass_id] /= iters
             word_counts[pass_id] /= iters
             wps = word_counts[pass_id] / batch_times[pass_id]
             wpses[pass_id] = wps
-            print("Pass: %d, iterations (total): %d (%d), latency: %.5f s, words: %d, wps: %f" %
-                  (pass_id, iters, all_iters, batch_times[pass_id], word_counts[pass_id], wps))
+            pass_acc_avg = pass_acc / pass_data_len
+            acces[pass_id] = pass_acc_avg
+            total_data_len += pass_data_len
 
-            #  avg_acc = total_acc / total_count
-            #  print("model_path: %s, avg_acc: %f" % (args.model_path, avg_acc))
-            #  print("iters {}".format(iters))
+            appx = ' (warm-up)' if pass_id < args.skip_pass_num else ''
+            print("Model: %s, pass: %d%s, iterations: %d, accuracy: %.5f, latency: %.5f s, words: %d, wps: %f" %
+                  (args.model_path, pass_id, appx, iters, pass_acc_avg, batch_times[pass_id], word_counts[pass_id], wps))
 
     # Postprocess benchmark data
     latencies = batch_times[args.skip_pass_num:]
     latency_avg = np.average(latencies)
     latency_std = np.std(latencies)
     latency_pc99 = np.percentile(latencies, 99)
+    wpses = wpses[args.skip_pass_num:]
     wps_avg = np.average(wpses)
     wps_std = np.std(wpses)
     wps_pc01 = np.percentile(wpses, 1)
+    acces = acces[args.skip_pass_num:]
+    acc_avg = np.mean(acces)
 
     # Benchmark output
-    print('\nTotal passes (incl. warm-up): %d' % (total_passes))
-    print('Total iterations (incl. warm-up): %d' % (all_iters))
-    print('Total examples (incl. warm-up): %d' % (all_iters * args.batch_size))
-    print('avg latency: %.5f, std latency: %.5f, 99pc latency: %.5f' %
+    print('\nInference statistics (excluding warm-up passes) for model %s:' % (args.model_path))
+    print('Total passes: %d' % (args.num_passes))
+    print('Total iterations: %d' % (total_iters))
+    print('Total examples: %d' % (total_data_len))
+    print('Avg latency: %.5f, std latency: %.5f, 99pc latency: %.5f' %
           (latency_avg, latency_std, latency_pc99))
-    print('avg wps: %.5f, std wps: %.5f, wps for 99pc latency: %.5f' %
+    print('Avg wps: %.5f, std wps: %.5f, wps for 99pc latency: %.5f' %
           (wps_avg, wps_std, wps_pc01))
+    print("Avg accuracy: %f" % (acc_avg))
 
 
 if __name__ == "__main__":

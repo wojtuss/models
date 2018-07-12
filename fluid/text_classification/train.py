@@ -5,7 +5,6 @@ import contextlib
 import argparse
 
 import paddle.fluid as fluid
-import paddle.v2 as paddle
 
 import utils
 from nets import bow_net
@@ -46,10 +45,6 @@ def parse_args():
         default=30,
         help='The number of epochs. (default: %(default)d)')
     parser.add_argument(
-        '--use_mkldnn',
-        action='store_true',
-        help='If set, use mkldnn library for speed up.')
-    parser.add_argument(
         '--parallel',
         action='store_true',
         help='If set, do calculation in parallel.')
@@ -72,8 +67,7 @@ def train(train_reader,
           save_dirname,
           lr=0.2,
           batch_size=128,
-          pass_num=30,
-          use_mkldnn=False):
+          pass_num=30):
     """
     train network
     """
@@ -83,15 +77,13 @@ def train(train_reader,
     label = fluid.layers.data(name="label", shape=[1], dtype="int64")
 
     if not parallel:
-        cost, acc, prediction = network(data, label, len(word_dict),
-                                        use_mkldnn=use_mkldnn)
+        cost, acc, prediction = network(data, label, len(word_dict))
     else:
         places = fluid.layers.get_places(device_count=2)
         pd = fluid.layers.ParallelDo(places)
         with pd.do():
             cost, acc, prediction = network(
-                pd.read_input(data), pd.read_input(label), len(word_dict),
-                use_mkldnn=use_mkldnn)
+                pd.read_input(data), pd.read_input(label), len(word_dict))
 
             pd.write_output(cost)
             pd.write_output(acc)
@@ -141,8 +133,7 @@ def train_net(args):
         save_dirname=args.model_save_dir,
         lr=lrs[args.topology],
         pass_num=args.num_passes,
-        batch_size=args.batch_size,
-        use_mkldnn=args.use_mkldnn)
+        batch_size=args.batch_size)
 
 
 if __name__ == "__main__":
