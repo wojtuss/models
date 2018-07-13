@@ -18,7 +18,7 @@ Using FLAGS_use_mkldnn=True is required for launching on mkldnn.
 ## Training
 The training is run for 1 pass measuring time by `time` program.
 ### CPU 
-Depending on the model yuu want to profile, run one of:
+Depending on the model you want to profile, run one of:
 ```
 train_bow.sh
 train_cnn.sh
@@ -29,7 +29,7 @@ train_lstm.sh
 ## Inference
 The inference is run for 100 passes with profiling and measuring time by `time` program.
 ### CPU 
-Depending on the model yuu want to profile, run one of:
+Depending on the model you want to profile, run one of:
 ```
 infer_bow.sh
 infer_cnn.sh
