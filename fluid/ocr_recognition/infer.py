@@ -1,4 +1,3 @@
-import paddle.v2 as paddle
 import paddle.fluid as fluid
 import paddle.fluid.profiler as profiler
 from utility import add_arguments, print_arguments, to_lodtensor, get_feeder_data

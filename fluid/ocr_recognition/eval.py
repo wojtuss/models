@@ -1,4 +1,3 @@
-import paddle.v2 as paddle
 import paddle.fluid as fluid
 from utility import add_arguments, print_arguments, to_lodtensor, get_feeder_data
 from crnn_ctc_model import ctc_infer
