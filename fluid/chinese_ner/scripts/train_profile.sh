@@ -4,4 +4,5 @@ time python ../train.py \
 	--model_save_dir model \
 	--test_data_dir ../data/test_files \
 	--train_data_dir ../data/train_files \
+  --parallel True \
 	--num_passes 1
