@@ -10,6 +10,7 @@ from paddle.fluid.initializer import NormalInitializer
 
 import reader
 
+
 def parse_args():
     parser = argparse.ArgumentParser("Run inference.")
     parser.add_argument(
@@ -39,6 +40,11 @@ def parse_args():
         default='data/train_files',
         help='A directory with train data files. (default: %(default)s)')
     parser.add_argument(
+        '--parallel',
+        type=bool,
+        default=False,
+        help="Whether to use parallel training. (default: %(default)s)")
+    parser.add_argument(
         '--test_data_dir',
         type=str,
         default='data/test_files',
@@ -46,17 +52,13 @@ def parse_args():
     parser.add_argument(
         '--model_save_dir',
         type=str,
-        default='./model',
+        default='./output',
         help='A directory for saving models. (default: %(default)s)')
     parser.add_argument(
         '--num_passes',
         type=int,
-        default=100,
+        default=1000,
         help='The number of epochs. (default: %(default)d)')
-    parser.add_argument(
-        '--use_mkldnn',
-        action='store_true',
-        help='If set, use mkldnn library for speed up.')
     args = parser.parse_args()
     return args
 
@@ -88,7 +90,7 @@ def to_lodtensor(data, place):
     return res
 
 
-def ner_net(word_dict_len, label_dict_len, use_mkldnn=False):
+def ner_net(word_dict_len, label_dict_len):
     IS_SPARSE = False
     word_dim = 32
     mention_dict_len = 57
@@ -155,7 +157,7 @@ def ner_net(word_dict_len, label_dict_len, use_mkldnn=False):
                 initializer=fluid.initializer.Uniform(
                     low=-init_bound, high=init_bound),
                 regularizer=fluid.regularizer.L2DecayRegularizer(
-                    regularization_coeff=1e-4)), use_mkldnn=use_mkldnn)
+                    regularization_coeff=1e-4)))
         gru = fluid.layers.dynamic_gru(
             input=pre_gru,
             size=grnn_hidden,
@@ -172,7 +174,7 @@ def ner_net(word_dict_len, label_dict_len, use_mkldnn=False):
                 initializer=fluid.initializer.Uniform(
                     low=-init_bound, high=init_bound),
                 regularizer=fluid.regularizer.L2DecayRegularizer(
-                    regularization_coeff=1e-4)), use_mkldnn=use_mkldnn)
+                    regularization_coeff=1e-4)))
         gru_r = fluid.layers.dynamic_gru(
             input=pre_gru_r,
             size=grnn_hidden,
@@ -192,7 +194,7 @@ def ner_net(word_dict_len, label_dict_len, use_mkldnn=False):
                 initializer=fluid.initializer.Uniform(
                     low=-init_bound, high=init_bound),
                 regularizer=fluid.regularizer.L2DecayRegularizer(
-                    regularization_coeff=1e-4)), use_mkldnn=use_mkldnn)
+                    regularization_coeff=1e-4)))
 
         crf_cost = fluid.layers.linear_chain_crf(
             input=emission,
@@ -263,9 +265,7 @@ def main(args):
     startup = fluid.Program()
     with fluid.program_guard(main, startup):
         avg_cost, feature_out, word, mention, target = ner_net(
-                args.word_dict_len, args.label_dict_len,
-                use_mkldnn=args.use_mkldnn)
-
+            args.word_dict_len, args.label_dict_len)
         sgd_optimizer = fluid.optimizer.SGD(learning_rate=1e-3)
         sgd_optimizer.minimize(avg_cost)
 
@@ -302,13 +302,17 @@ def main(args):
         exe = fluid.Executor(place)
 
         exe.run(startup)
-        train_exe = fluid.ParallelExecutor(
-            loss_name=avg_cost.name,
-            use_cuda=(args.device == 'GPU'))
-        test_exe = fluid.ParallelExecutor(
-            use_cuda=(args.device == 'GPU'),
-            main_program=inference_program,
-            share_vars_from=train_exe)
+        if args.parallel:
+            train_exe = fluid.ParallelExecutor(
+                loss_name=avg_cost.name, use_cuda=(args.device == 'GPU'))
+            test_exe = fluid.ParallelExecutor(
+                use_cuda=(args.device == 'GPU'),
+                main_program=inference_program,
+                share_vars_from=train_exe)
+        else:
+            train_exe = exe
+            test_exe = exe
+
         batch_id = 0
         for pass_id in xrange(args.num_passes):
             chunk_evaluator.reset()
@@ -344,9 +348,8 @@ def main(args):
                   + str(f1))
             save_dirname = os.path.join(args.model_save_dir,
                                         "params_pass_%d" % pass_id)
-            fluid.io.save_inference_model(save_dirname,
-                                          ['word', 'mention', 'target'],
-                                          [crf_decode], exe)
+            fluid.io.save_inference_model(
+                save_dirname, ['word', 'mention', 'target'], [crf_decode], exe)
 
 
 if __name__ == "__main__":
