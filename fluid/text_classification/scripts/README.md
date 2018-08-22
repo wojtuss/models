@@ -15,6 +15,11 @@ FLAGS_use_mkldnn=True
 For example, you can export them, or add them inside the specific files.
 Using FLAGS_use_mkldnn=True is required for launching on mkldnn.
 
+## Dataset
+There are two datasets available off-the-shelf via the '--dataset' option:
+- 'imdb' (english, larger),
+- 'data' (chinese, smaller).
+
 ## Training
 The training is run for 1 pass measuring time by `time` program.
 ### CPU 
