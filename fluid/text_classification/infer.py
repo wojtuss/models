@@ -1,7 +1,4 @@
-import sys
 import time
-import unittest
-import contextlib
 import numpy as np
 import argparse
 
@@ -17,7 +14,13 @@ def parse_args():
         '--batch_size',
         type=int,
         default=128,
-        help='The size of a batch. (default: %(default)d, usually: 128 for "bow" and "gru", 4 for "cnn" and "lstm")')
+        help='The size of a batch. (default: %(default)d, usually: 128 for "bow" and "gru", 4 for "cnn", "lstm" and "bilstm").')
+    parser.add_argument(
+        "--dataset",
+        type=str,
+        default='imdb',
+        choices=['imdb', 'data'],
+        help="Dataset to be used: 'imdb' or 'data' (from 'data' subdirectory).")
     parser.add_argument(
         '--device',
         type=str,
@@ -77,7 +80,7 @@ def infer(args):
         wpses = [0] * total_passes
         acces = [0] * total_passes
         word_dict, train_reader, test_reader = utils.prepare_data(
-            "imdb", self_dict=False, batch_size=args.batch_size,
+            args.dataset, self_dict=False, batch_size=args.batch_size,
             buf_size=50000)
         pass_acc = 0.0
         pass_data_len = 0
@@ -100,6 +103,7 @@ def infer(args):
                             fetch_list=fetch_targets,
                             return_numpy=True)
                 batch_time = time.time() - start
+                # TODO: add class accuracy measurement as in Senta
                 word_count = len([w for d in data for w in d[0]])
                 batch_times[pass_id] += batch_time
                 word_counts[pass_id] += word_count

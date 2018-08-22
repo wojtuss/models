@@ -24,6 +24,7 @@ train_bow.sh
 train_cnn.sh
 train_gru.sh
 train_lstm.sh
+train_bilstm.sh
 ```
 
 ## Inference
@@ -35,4 +36,5 @@ infer_bow.sh
 infer_cnn.sh
 infer_gru.sh
 infer_lstm.sh
+infer_bilstm.sh
 ```
