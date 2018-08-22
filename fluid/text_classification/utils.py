@@ -104,7 +104,9 @@ def prepare_data(data_type="imdb",
             data_reader(script_path + "/data/train_data/corpus.train", word_dict, True),
             batch_size=batch_size)
         test_reader = paddle.batch(
-            data_reader(script_path + "/data/test_data/corpus.test", word_dict, False),
+            # test data are corrupted (!?)
+            #  data_reader(script_path + "/data/test_data/corpus.test", word_dict, False),
+            data_reader(script_path + "/data/train_data/corpus.train", word_dict, True),
             batch_size=batch_size)
     else:
         raise RuntimeError("No such dataset")
