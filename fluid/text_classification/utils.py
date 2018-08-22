@@ -1,6 +1,8 @@
 import sys
 import time
 import numpy as np
+import random
+import os
 
 import paddle
 import paddle.fluid as fluid
@@ -48,6 +50,28 @@ def data2tensor(data, place):
     return {"words": input_seq, "label": y_data}
 
 
+def data_reader(file_path, word_dict, is_shuffle=True):
+    """
+    Convert word sequence into slot
+    """
+    unk_id = len(word_dict)
+    all_data = []
+    with open(file_path, "r") as fin:
+        for line in fin:
+            cols = line.strip().split("\t")
+            label = int(cols[0])
+            wids = [word_dict[x] if x in word_dict else unk_id
+                    for x in cols[1].split(" ")]
+            all_data.append((wids, label))
+    if is_shuffle:
+        random.shuffle(all_data)
+
+    def reader():
+        for doc, label in all_data:
+            yield doc, label
+    return reader
+
+
 def prepare_data(data_type="imdb",
                  self_dict=False,
                  batch_size=128,
@@ -55,11 +79,14 @@ def prepare_data(data_type="imdb",
     """
     prepare data
     """
+    script_path = os.path.dirname(__file__)
     if self_dict:
         word_dict = load_vocab(data_type + ".vocab")
     else:
         if data_type == "imdb":
             word_dict = paddle.dataset.imdb.word_dict()
+        elif data_type == "data":
+            word_dict = load_vocab(script_path + "/data/train.vocab")
         else:
             raise RuntimeError("No such dataset")
 
@@ -68,12 +95,18 @@ def prepare_data(data_type="imdb",
             paddle.reader.shuffle(
                 paddle.dataset.imdb.train(word_dict), buf_size=buf_size),
             batch_size=batch_size)
-
         test_reader = paddle.batch(
             paddle.reader.shuffle(
                 paddle.dataset.imdb.test(word_dict), buf_size=buf_size),
             batch_size=batch_size)
+    elif data_type == "data":
+        train_reader = paddle.batch(
+            data_reader(script_path + "/data/train_data/corpus.train", word_dict, True),
+            batch_size=batch_size)
+        test_reader = paddle.batch(
+            data_reader(script_path + "/data/test_data/corpus.test", word_dict, False),
+            batch_size=batch_size)
     else:
-        raise RuntimeError("no such dataset")
+        raise RuntimeError("No such dataset")
 
     return word_dict, train_reader, test_reader

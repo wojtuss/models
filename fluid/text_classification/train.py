@@ -10,24 +10,32 @@ import utils
 from nets import bow_net
 from nets import cnn_net
 from nets import lstm_net
+from nets import bilstm_net
 from nets import gru_net
 
-nets = {'bow': bow_net, 'cnn': cnn_net, 'lstm': lstm_net, 'gru': gru_net}
+nets = {'bow': bow_net, 'cnn': cnn_net, 'lstm': lstm_net, 'bilstm': bilstm_net,
+        'gru': gru_net}
 # learning rates
-lrs = {'bow': 0.002, 'cnn': 0.01, 'lstm': 0.05, 'gru': 0.05}
+lrs = {'bow': 0.002, 'cnn': 0.01, 'lstm': 0.05, 'bilstm':0.002, 'gru': 0.05}
 
 def parse_args():
     parser = argparse.ArgumentParser("Run inference.")
     parser.add_argument(
         'topology',
         type=str,
-        choices=['bow', 'cnn', 'lstm', 'gru'],
+        choices=['bow', 'cnn', 'lstm', 'bilstm', 'gru'],
         help='Topology used for the model (bow/cnn/lstm/gru).')
+    parser.add_argument(
+        "--dataset",
+        type=str,
+        default='imdb',
+        choices=['imdb', 'data'],
+        help="Dataset to be used: 'imdb' or 'data' (from 'data' subdirectory).")
     parser.add_argument(
         '--batch_size',
         type=int,
         default=128,
-        help='The size of a batch. (default: %(default)d, usually: 128 for "bow" and "gru", 4 for "cnn" and "lstm")')
+        help='The size of a batch. (default: %(default)d, usually: 128 for "bow" and "gru", 4 for "cnn", "lstm" and "bilstm").')
     parser.add_argument(
         '--device',
         type=str,
@@ -122,7 +130,7 @@ def train(train_reader,
 
 def train_net(args):
     word_dict, train_reader, test_reader = utils.prepare_data(
-        "imdb", self_dict=False, batch_size=128, buf_size=50000)
+        args.dataset, self_dict=False, batch_size=128, buf_size=50000)
 
     train(
         train_reader,
