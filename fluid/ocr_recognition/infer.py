@@ -18,6 +18,7 @@ add_arg('input_images_list',  str,  None,   "The list file of images.")
 add_arg('dict',               str,  None,   "The dictionary. The result of inference will be index sequence if the dictionary was None.")
 add_arg('use_gpu',            bool,  True,      "Whether use GPU to infer.")
 add_arg('use_mkldnn',         bool, False,  "Whether to use mkldnn. If set to True, set model_path option to a model trained with mkldnn.")
+add_arg('use_transpiler',     bool, False,  "Whether to use transpiler.")
 add_arg('iterations',         int,  0,      "The number of iterations. Zero or less means whole test set. More than 0 means the test set might be looped until # of iterations is reached.")
 add_arg('profile',            bool, False,  "Whether to use profiling.")
 add_arg('skip_batch_num',     int,  0,      "The number of first minibatches to skip as warm-up for better performance test.")
@@ -65,6 +66,13 @@ def inference(args, infer=ctc_infer, data_reader=ctc_reader):
     fluid.io.load_params(exe, dirname=model_dir, filename=model_file_name)
     print "Init model from: %s." % args.model_path
 
+    program = fluid.default_main_program()
+    if args.use_transpiler:
+        inference_transpiler_program = program.clone()
+        t = fluid.InferenceTranspiler()
+        t.transpile(inference_transpiler_program, place)
+        program = inference_transpiler_program
+
     batch_times = []
     iters = 0
     for data in infer_reader():
@@ -76,7 +84,7 @@ def inference(args, infer=ctc_infer, data_reader=ctc_reader):
             profiler.reset_profiler()
 
         start = time.time()
-        result = exe.run(fluid.default_main_program(),
+        result = exe.run(program,
                          feed=get_feeder_data(
                              data, place, need_label=False),
                          fetch_list=[sequence],
