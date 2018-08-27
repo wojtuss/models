@@ -1,0 +1,3 @@
+[submodule "fluid/lac/baidu/lac"]
+	path = fluid/lac/baidu/lac
+	url = https://github.com/baidu/lac
