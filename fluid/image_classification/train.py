@@ -33,6 +33,7 @@ add_arg('iterations',       int,   0,                    "The number of iteratio
 add_arg('skip_test',        bool,  True,                 "Whether to skip test phase.")
 add_arg('profile',          bool,  False,                "If set, do profiling.")
 add_arg('skip_batch_num',   int,   0,                    "The number of first minibatches to skip as warm-up for better performance test.")
+add_arg('use_fake_data',    bool,  True,                 "use real data or fake data")
 # yapf: enable
 
 model_list = [m for m in dir(models) if "__" not in m]
@@ -85,6 +86,17 @@ def optimizer_setting(params):
 
     return optimizer
 
+def user_data_reader(data):
+    """
+    Creates a data reader whose data output is user data.
+    """
+
+    def data_reader():
+        while True:
+            for b in data:
+                yield b
+
+    return data_reader
 
 def train(args):
     # parameters from arguments
@@ -98,6 +110,14 @@ def train(args):
 
     assert model_name in model_list, "{} is not in lists: {}".format(args.model,
                                                                      model_list)
+
+    if args.use_fake_data:
+        fake_train_data = [(np.random.rand(image_shape[0] * image_shape[1] * image_shape[2]).
+                            astype(np.float32), np.random.randint(1, class_dim))
+                           for _ in range(1)]
+        fake_test_data = [(np.random.rand(image_shape[0] * image_shape[1] * image_shape[2]).
+                           astype(np.float32), np.random.randint(1, class_dim))
+                          for _ in range(1)]
 
     image = fluid.layers.data(name='image', shape=image_shape, dtype='float32')
     label = fluid.layers.data(name='label', shape=[1], dtype='int64')
@@ -158,10 +178,17 @@ def train(args):
 
     train_batch_size = args.batch_size
     test_batch_size = 16
-    train_reader = paddle.batch(
-        reader.train(cycle=args.iterations > 0), batch_size=train_batch_size)
-    test_reader = paddle.batch(reader.test(), batch_size=test_batch_size)
-    feeder = fluid.DataFeeder(place=place, feed_list=[image, label])
+    if args.use_fake_data:
+        train_reader = paddle.batch(
+            user_data_reader(fake_train_data), batch_size=args.batch_size)
+        test_reader = paddle.batch(
+            user_data_reader(fake_test_data), batch_size=test_batch_size)
+        feeder = fluid.DataFeeder(place=place, feed_list=[image, label])
+    else:
+        train_reader = paddle.batch(
+            reader.train(cycle=args.iterations > 0), batch_size=train_batch_size)
+        test_reader = paddle.batch(reader.test(), batch_size=test_batch_size)
+        feeder = fluid.DataFeeder(place=place, feed_list=[image, label])
 
     train_exe = fluid.ParallelExecutor(
         use_cuda=True if args.use_gpu else False, loss_name=avg_cost.name)
