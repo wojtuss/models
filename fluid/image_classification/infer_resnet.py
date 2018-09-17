@@ -79,7 +79,7 @@ def parse_args():
     parser.add_argument(
         '--use_transpiler',
         type=bool,
-        default=True,
+        default=False,
         help='Whether to use transpiler.')
 
     args = parser.parse_args()
