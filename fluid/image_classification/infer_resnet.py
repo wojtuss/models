@@ -79,6 +79,11 @@ def parse_args():
         type=str,
         default='data/ILSVRC2012',
         help='A directory with test data files.')
+    parser.add_argument(
+        '--use_transpiler',
+        type=bool,
+        default=False,
+        help='Whether to use transpiler.')
 
     args = parser.parse_args()
     return args
@@ -109,10 +114,8 @@ def infer(args):
     elif args.data_set == "imagenet":
         class_dim = 1000
         if args.data_format == 'NCHW':
-            #  dshape = [3, 256, 256]
             dshape = [3, 224, 224]
         else:
-            #  dshape = [256, 256, 3]
             dshape = [224, 224, 3]
     else:
         class_dim = 102
@@ -148,15 +151,16 @@ def infer(args):
                 batch_size=args.batch_size)
         elif args.data_set == 'imagenet':
             infer_reader = paddle.batch(
-                reader.test(file_list=args.test_file_list,
-                            data_dir=args.data_dir, cycle=cycle),
+                # the train method allows for accuracy measurement
+                reader.train(
+                    file_list=args.test_file_list,
+                    data_dir=args.data_dir,
+                    cycle=cycle),
                 batch_size=args.batch_size)
         else:
             infer_reader = paddle.batch(
                 paddle.dataset.flowers.test(cycle=cycle),
                 batch_size=args.batch_size)
-
-    infer_accuracy = fluid.metrics.Accuracy()
 
     if args.use_fake_data:
         data = infer_reader().next()
@@ -171,6 +175,14 @@ def infer(args):
     fpses = []
     total_samples = 0
     infer_start_time = time.time()
+
+    program = infer_program.clone()
+    if args.use_transpiler:
+        inference_transpiler_program = program.clone()
+        t = fluid.transpiler.InferenceTranspiler()
+        t.transpile(inference_transpiler_program, place)
+        program = inference_transpiler_program
+
     for data in infer_reader():
         if args.iterations > 0 and iters == args.iterations + args.skip_batch_num:
             break
@@ -185,23 +197,24 @@ def infer(args):
             label = label.reshape([-1, 1])
 
         start = time.time()
-        acc, weight = exe.run(infer_program,
+        loss, acc1, acc5 = exe.run(infer_program,
                       feed={feed_dict[0]:image,feed_dict[1]:label},
                       fetch_list=fetch_targets)
 
         batch_time = time.time() - start
+        loss = np.mean(loss)
+        acc1 = np.mean(acc1)
+        acc5 = np.mean(acc5)
         samples = len(label)
         total_samples += samples
         fps = samples / batch_time
         batch_times.append(batch_time)
         fpses.append(fps)
-        infer_accuracy.update(value=acc, weight=weight)
-        infer_acc = infer_accuracy.eval()
-        infer_accs.append(infer_acc)
+        infer_accs.append(acc1)
         iters += 1
         appx = ' (warm-up)' if iters <= args.skip_batch_num else ''
         print("Iteration: %d%s, accuracy: %f, latency: %.5f s, fps: %f" %
-              (iters, appx, np.mean(infer_acc), batch_time, fps))
+              (iters, appx, np.mean(acc1), batch_time, fps))
 
     # Postprocess benchmark data
     latencies = batch_times[args.skip_batch_num:]
@@ -219,9 +232,9 @@ def infer(args):
 
     # Benchmark output
     print('\nAvg fps: %.5f, std fps: %.5f, fps for 99pc latency: %.5f' %
-            (fps_avg, fps_std, fps_pc01))
+          (fps_avg, fps_std, fps_pc01))
     print('Avg latency: %.5f, std latency: %.5f, 99pc latency: %.5f' %
-            (latency_avg, latency_std, latency_pc99))
+          (latency_avg, latency_std, latency_pc99))
     print('Total examples: %d, total time: %.5f, total examples/sec: %.5f' %
           (total_samples, infer_total_time, examples_per_sec))
     print("Avg accuracy: %f\n" % (acc_avg))
