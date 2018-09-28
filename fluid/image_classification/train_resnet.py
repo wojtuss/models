@@ -240,10 +240,8 @@ def train(model, args):
     elif args.data_set == "imagenet":
         class_dim = 1000
         if args.data_format == 'NCHW':
-            #  dshape = [3, 256, 256]
             dshape = [3, 224, 224]
         else:
-            #  dshape = [256, 256, 3]
             dshape = [224, 224, 3]
     else:
         class_dim = 102
@@ -264,10 +262,8 @@ def train(model, args):
     predict = model(input, class_dim)
     cost = fluid.layers.cross_entropy(input=predict, label=label)
     avg_cost = fluid.layers.mean(x=cost)
-
-    batch_size_tensor = fluid.layers.create_tensor(dtype='int64')
-    batch_acc = fluid.layers.accuracy(
-        input=predict, label=label, total=batch_size_tensor)
+    acc_top1 = fluid.layers.accuracy(input=predict, label=label, k=1)
+    acc_top5 = fluid.layers.accuracy(input=predict, label=label, k=5)
 
     inference_program = fluid.default_main_program().clone(for_test=True)
 
@@ -309,25 +305,25 @@ def train(model, args):
                 batch_size=args.batch_size)
 
     def test(exe):
-        test_accuracy = fluid.average.WeightedAverage()
         for batch_id, data in enumerate(test_reader()):
             img_data = np.array(map(lambda x: x[0].reshape(dshape),
                                     data)).astype("float32")
             y_data = np.array(map(lambda x: x[1], data)).astype("int64")
             y_data = y_data.reshape([-1, 1])
 
-            acc, weight = exe.run(inference_program,
+            loss, acc1, acc5 = exe.run(inference_program,
                                   feed={"data": img_data,
                                         "label": y_data},
-                                  fetch_list=[batch_acc, batch_size_tensor])
-            test_accuracy.add(value=acc, weight=weight)
+                                  fetch_list=[avg_cost.name, acc_top1.name, acc_top5.name])
+            loss = np.mean(loss)
+            acc1 = np.mean(acc1)
+            acc5 = np.mean(acc5)
 
-        return test_accuracy.eval()
+        return acc1
 
     place = core.CPUPlace() if args.device == 'CPU' else core.CUDAPlace(0)
     exe = fluid.Executor(place)
     exe.run(fluid.default_startup_program())
-    accuracy = fluid.average.WeightedAverage()
     if args.use_fake_data:
         data = train_reader().next()
         image = np.array(map(lambda x: x[0].reshape(dshape), data)).astype(
@@ -336,7 +332,6 @@ def train(model, args):
         label = label.reshape([-1, 1])
 
     for pass_id in range(args.pass_num):
-        accuracy.reset()
         train_accs = []
         train_losses = []
         batch_times = []
@@ -358,24 +353,26 @@ def train(model, args):
                 label = label.reshape([-1, 1])
 
             start = time.time()
-            loss, acc, weight = exe.run(
+            loss, acc1, acc5 = exe.run(
                 fluid.default_main_program(),
                 feed={'data': image,
                       'label': label},
-                fetch_list=[avg_cost, batch_acc, batch_size_tensor])
+                fetch_list=[avg_cost.name, acc_top1.name, acc_top5.name])
+            loss = np.mean(loss)
+            acc1 = np.mean(acc1)
+            acc5 = np.mean(acc5)
             batch_time = time.time() - start
             samples = len(label)
             total_samples += samples
             fps = samples / batch_time
             iters += 1
-            accuracy.add(value=acc, weight=weight)
             train_losses.append(loss)
-            train_accs.append(acc)
+            train_accs.append(acc1)
             batch_times.append(batch_time)
             fpses.append(fps)
             appx = ' (warm-up)' if iters <= args.skip_batch_num else ''
             print("Pass: %d, Iter: %d%s, Loss: %f, Accuracy: %f, FPS: %.5f img/s" %
-                  (pass_id, iters, appx, loss, acc, fps))
+                  (pass_id, iters, appx, loss, acc1, fps))
 
         # Postprocess benchmark data
         latencies = batch_times[args.skip_batch_num:]
@@ -404,7 +401,7 @@ def train(model, args):
             if not os.path.isdir(args.save_model_path):
                 os.makedirs(args.save_model_path)
             fluid.io.save_inference_model(args.save_model_path,
-                    ["data", "label"], [batch_acc, batch_size_tensor], exe)
+                    ["data", "label"], [avg_cost, acc_top1, acc_top5], exe)
             print("Model saved into {}".format(args.save_model_path))
 
         # evaluation

@@ -112,10 +112,8 @@ def infer(args):
     elif args.data_set == "imagenet":
         class_dim = 1000
         if args.data_format == 'NCHW':
-            #  dshape = [3, 256, 256]
             dshape = [3, 224, 224]
         else:
-            #  dshape = [256, 256, 3]
             dshape = [224, 224, 3]
     else:
         class_dim = 102
@@ -150,7 +148,8 @@ def infer(args):
                 batch_size=args.batch_size)
         elif args.data_set == 'imagenet':
             infer_reader = paddle.batch(
-                reader.test(
+                # the train method allows for accuracy measurement
+                reader.train(
                     file_list=args.test_file_list,
                     data_dir=args.data_dir,
                     cycle=cycle),
@@ -159,8 +158,6 @@ def infer(args):
             infer_reader = paddle.batch(
                 paddle.dataset.flowers.test(cycle=cycle),
                 batch_size=args.batch_size)
-
-    infer_accuracy = fluid.metrics.Accuracy()
 
     if args.use_fake_data:
         data = infer_reader().next()
@@ -197,24 +194,24 @@ def infer(args):
             label = label.reshape([-1, 1])
 
         start = time.time()
-        acc, weight = exe.run(program,
-                              feed={feed_dict[0]: image,
-                                    feed_dict[1]: label},
-                              fetch_list=fetch_targets)
+        loss, acc1, acc5 = exe.run(program,
+                      feed={feed_dict[0]:image,feed_dict[1]:label},
+                      fetch_list=fetch_targets)
 
         batch_time = time.time() - start
+        loss = np.mean(loss)
+        acc1 = np.mean(acc1)
+        acc5 = np.mean(acc5)
         samples = len(label)
         total_samples += samples
         fps = samples / batch_time
         batch_times.append(batch_time)
         fpses.append(fps)
-        infer_accuracy.update(value=acc, weight=weight)
-        infer_acc = infer_accuracy.eval()
-        infer_accs.append(infer_acc)
+        infer_accs.append(acc1)
         iters += 1
         appx = ' (warm-up)' if iters <= args.skip_batch_num else ''
         print("Iteration: %d%s, accuracy: %f, latency: %.5f s, fps: %f" %
-              (iters, appx, np.mean(infer_acc), batch_time, fps))
+              (iters, appx, np.mean(acc1), batch_time, fps))
 
     # Postprocess benchmark data
     latencies = batch_times[args.skip_batch_num:]
