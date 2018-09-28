@@ -24,10 +24,7 @@ def print_arguments(args):
 def parse_args():
     parser = argparse.ArgumentParser('Convolution model benchmark.')
     parser.add_argument(
-        '--batch_size',
-        type=int,
-        default=32,
-        help='The minibatch size.')
+        '--batch_size', type=int, default=32, help='The minibatch size.')
     parser.add_argument(
         '--use_fake_data',
         action='store_true',
@@ -36,12 +33,14 @@ def parse_args():
         '--skip_batch_num',
         type=int,
         default=0,
-        help='The number of the first minibatches to skip in statistics, for better performance test.')
+        help='The number of the first minibatches to skip in statistics, for better performance test.'
+    )
     parser.add_argument(
         '--iterations',
         type=int,
         default=0,
-        help='The number of minibatches to process. 0 or less: whole dataset. Greater than 0: cycle the dataset if needed.')
+        help='The number of minibatches to process. 0 or less: whole dataset. Greater than 0: cycle the dataset if needed.'
+    )
     parser.add_argument(
         '--data_format',
         type=str,
@@ -61,9 +60,7 @@ def parse_args():
         choices=['cifar10', 'flowers', 'imagenet'],
         help='Optional dataset for benchmark.')
     parser.add_argument(
-        '--profile',
-        action='store_true',
-        help='If set, do profiling.')
+        '--profile', action='store_true', help='If set, do profiling.')
     parser.add_argument(
         '--infer_model_path',
         type=str,
@@ -98,6 +95,7 @@ def user_data_reader(data):
         while True:
             for b in data:
                 yield b
+
     return data_reader
 
 
@@ -124,9 +122,9 @@ def infer(args):
         else:
             dshape = [224, 224, 3]
 
-    fake_data = [(np.random.rand(dshape[0] * dshape[1] * dshape[2]).
-                  astype(np.float32), np.random.randint(1, class_dim))
-                 for _ in range(1)]
+    fake_data = [(
+        np.random.rand(dshape[0] * dshape[1] * dshape[2]).astype(np.float32),
+        np.random.randint(1, class_dim)) for _ in range(1)]
 
     image = fluid.layers.data(name='data', shape=dshape, dtype='float32')
     label = fluid.layers.data(name='label', shape=[1], dtype='int64')
@@ -141,8 +139,7 @@ def infer(args):
     # infer data read
     if args.use_fake_data:
         infer_reader = paddle.batch(
-            user_data_reader(fake_data),
-            batch_size = args.batch_size)
+            user_data_reader(fake_data), batch_size=args.batch_size)
     else:
         cycle = args.iterations > 0
         if args.data_set == 'cifar10':
@@ -191,13 +188,13 @@ def infer(args):
             total_samples = 0
             infer_start_time = time.time()
         if not args.use_fake_data:
-            image = np.array(map(lambda x: x[0].reshape(dshape),
-                                    data)).astype("float32")
+            image = np.array(map(lambda x: x[0].reshape(dshape), data)).astype(
+                "float32")
             label = np.array(map(lambda x: x[1], data)).astype("int64")
             label = label.reshape([-1, 1])
 
         start = time.time()
-        loss, acc1, acc5 = exe.run(infer_program,
+        loss, acc1, acc5 = exe.run(program,
                       feed={feed_dict[0]:image,feed_dict[1]:label},
                       fetch_list=fetch_targets)
 
