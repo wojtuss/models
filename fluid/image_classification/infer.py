@@ -16,20 +16,21 @@ import math
 parser = argparse.ArgumentParser(description=__doc__)
 # yapf: disable
 add_arg = functools.partial(add_arguments, argparser=parser)
-add_arg('batch_size', int, 256, "Minibatch size.")
-add_arg('use_gpu', bool, True, "Whether to use GPU or not.")
-add_arg('class_dim', int, 1000, "Class number.")
-add_arg('image_shape', str, "3,224,224", "Input image size")
-add_arg('with_mem_opt', bool, True, "Whether to use memory optimization or not.")
-add_arg('pretrained_model', str, None, "Whether to use pretrained model.")
-add_arg('model', str, "SE_ResNeXt50_32x4d", "Set the network to use.")
-add_arg('profile', bool, False, "If set, do profiling.")
-add_arg('iterations', int, 0,
-        "The number of iterations. Zero or less means whole training set. More than 0 means the training set might be looped until # of iterations is reached.")
-add_arg('use_fake_data', int, 0, "Use real data or fake data")
-add_arg('skip_batch_num', int, 0, "The number of first minibatches to skip as warm-up for better performance test.")
-add_arg('skip_test', bool, True, "Whether to skip test phase.")
-add_arg('num_epochs', int, 120, "number of epochs.")
+add_arg('batch_size',        int,   256,            "Minibatch size.")
+add_arg('use_gpu',           bool,  True,           "Whether to use GPU or not.")
+add_arg('class_dim',         int,   1000,           "Class number.")
+add_arg('image_shape',       str,   "3,224,224",    "Input image size")
+add_arg('with_mem_opt',      bool,  True,           "Whether to use memory optimization or not.")
+add_arg('pretrained_model',  str,   None,           "Whether to use pretrained model.")
+add_arg('model',             str,                   "SE_ResNeXt50_32x4d", "Set the network to use.")
+add_arg('profile',           bool,  False,          "If set, do profiling.")
+add_arg('iterations',        int,   0,              "The number of iterations. Zero or less means whole training set. More than 0 means the training set might be looped until # of iterations is reached.")
+add_arg('use_fake_data',     bool,  False,          "Use real data or fake data")
+add_arg('skip_batch_num',    int,   0,              "The number of first minibatches to skip as warm-up for better performance test.")
+add_arg('skip_test',         bool,  True,           "Whether to skip test phase.")
+add_arg('num_epochs',        int,   120,            "number of epochs.")
+add_arg('use_transpiler',    bool,  False,          "Whether to use transpiler.")
+
 # yapf: enable
 
 model_list = [m for m in dir(models) if "__" not in m]
@@ -83,6 +84,12 @@ def infer(args):
     place = fluid.CUDAPlace(0) if args.use_gpu else fluid.CPUPlace()
     exe = fluid.Executor(place)
     exe.run(fluid.default_startup_program())
+
+    if args.use_transpiler:
+        inference_transpiler_program = test_program
+        t = fluid.InferenceTranspiler()
+        t.transpile(inference_transpiler_program, place)
+        test_program = inference_transpiler_program
 
     # parameters from model and arguments
     params = model.params
