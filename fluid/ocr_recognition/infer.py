@@ -69,7 +69,7 @@ def inference(args, infer=ctc_infer, data_reader=ctc_reader):
     program = fluid.default_main_program()
     if args.use_transpiler:
         inference_transpiler_program = program.clone()
-        t = fluid.InferenceTranspiler()
+        t = fluid.transpiler.InferenceTranspiler()
         t.transpile(inference_transpiler_program, place)
         program = inference_transpiler_program
 
