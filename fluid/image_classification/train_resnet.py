@@ -126,22 +126,28 @@ def parse_args():
     return args
 
 
-def conv_bn_layer(input, ch_out, filter_size, stride, padding, act='relu'):
+def conv_bn_layer(input,
+                  num_filters,
+                  filter_size,
+                  stride=1,
+                  groups=1,
+                  act=None):
     conv1 = fluid.layers.conv2d(
         input=input,
+        num_filters=num_filters,
         filter_size=filter_size,
-        num_filters=ch_out,
         stride=stride,
-        padding=padding,
+        padding=(filter_size - 1) // 2,
+        groups=groups,
         act=None,
         bias_attr=False)
     return fluid.layers.batch_norm(input=conv1, act=act)
 
 
 def shortcut(input, ch_out, stride):
-    ch_in = input.shape[1] if args.data_format == 'NCHW' else input.shape[-1]
-    if ch_in != ch_out:
-        return conv_bn_layer(input, ch_out, 1, stride, 0, None)
+    ch_in = input.shape[1]
+    if ch_in != ch_out or stride != 1:
+        return conv_bn_layer(input, ch_out, 1, stride)
     else:
         return input
 
@@ -153,11 +159,11 @@ def basicblock(input, ch_out, stride):
     return fluid.layers.elementwise_add(x=short, y=conv2, act='relu')
 
 
-def bottleneck(input, ch_out, stride):
-    short = shortcut(input, ch_out * 4, stride)
-    conv1 = conv_bn_layer(input, ch_out, 1, stride, 0)
-    conv2 = conv_bn_layer(conv1, ch_out, 3, 1, 1)
-    conv3 = conv_bn_layer(conv2, ch_out * 4, 1, 1, 0, act=None)
+def bottleneck(input, num_filters, stride):
+    short = shortcut(input, num_filters * 4, stride)
+    conv1 = conv_bn_layer(input, num_filters, 1, stride, 0)
+    conv2 = conv_bn_layer(conv1, num_filters, 3, 1, 1)
+    conv3 = conv_bn_layer(conv2, num_filters * 4, 1, 1, 0, act=None)
     return fluid.layers.elementwise_add(x=short, y=conv3, act='relu')
 
 
@@ -168,7 +174,7 @@ def layer_warp(block_func, input, ch_out, count, stride):
     return res_out
 
 
-def resnet_imagenet(input, class_dim, depth=50, data_format='NCHW'):
+def resnet_imagenet(input, class_dim, layers=50, data_format='NCHW'):
 
     cfg = {
         18: ([2, 2, 2, 1], basicblock),
@@ -177,14 +183,14 @@ def resnet_imagenet(input, class_dim, depth=50, data_format='NCHW'):
         101: ([3, 4, 23, 3], bottleneck),
         152: ([3, 8, 36, 3], bottleneck)
     }
-    stages, block_func = cfg[depth]
+    depth, block_func = cfg[layers]
     conv1 = conv_bn_layer(input, ch_out=64, filter_size=7, stride=2, padding=3)
     pool1 = fluid.layers.pool2d(input=conv1, pool_type='avg', pool_size=3,
                                 pool_stride=2)
-    res1 = layer_warp(block_func, pool1, 64, stages[0], 1)
-    res2 = layer_warp(block_func, res1, 128, stages[1], 2)
-    res3 = layer_warp(block_func, res2, 256, stages[2], 2)
-    res4 = layer_warp(block_func, res3, 512, stages[3], 2)
+    res1 = layer_warp(block_func, pool1, 64, depth[0], 1)
+    res2 = layer_warp(block_func, res1, 128, depth[1], 2)
+    res3 = layer_warp(block_func, res2, 256, depth[2], 2)
+    res4 = layer_warp(block_func, res3, 512, depth[3], 2)
     pool2 = fluid.layers.pool2d(
         input=res4,
         pool_size=7,
