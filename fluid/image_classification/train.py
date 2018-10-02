@@ -213,7 +213,9 @@ def train(args):
             if args.iterations > 0 and batch_id == args.iterations + args.skip_batch_num:
                 break
             t1 = time.time()
-            loss, acc1, acc5 = train_exe.run(fetch_list, feed=feeder.feed(data))
+            loss, acc1, acc5 = train_exe.run(test_program,
+                                             fetch_list=fetch_list,
+                                             feed=feeder.feed(data))
             t2 = time.time()
             period = t2 - t1
             batch_times.append(period)
