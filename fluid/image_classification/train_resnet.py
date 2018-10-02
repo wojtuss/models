@@ -29,6 +29,7 @@ import paddle.fluid.core as core
 import paddle.fluid.profiler as profiler
 
 import reader
+import models
 
 
 def parse_args():
@@ -36,7 +37,7 @@ def parse_args():
     parser.add_argument(
         '--model',
         type=str,
-        choices=['resnet_imagenet', 'resnet_cifar10'],
+        choices=['resnet_imagenet', 'resnet_cifar10', 'resnet50'],
         default='resnet_imagenet',
         help='The model architecture.')
     parser.add_argument(
@@ -173,6 +174,9 @@ def layer_warp(block_func, input, ch_out, count, stride):
         res_out = block_func(res_out, ch_out, 1)
     return res_out
 
+def resnet50(input, class_dim):
+    resnet50_model = models.__dict__["ResNet50"]()
+    return resnet50_model.net(input, class_dim)
 
 def resnet_imagenet(input, class_dim, layers=50, data_format='NCHW'):
 
@@ -427,7 +431,8 @@ def print_arguments(args):
 if __name__ == '__main__':
     model_map = {
         'resnet_imagenet': resnet_imagenet,
-        'resnet_cifar10': resnet_cifar10
+        'resnet_cifar10': resnet_cifar10,
+        'resnet50': resnet50
     }
     args = parse_args()
     print_arguments(args)
