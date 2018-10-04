@@ -4,6 +4,7 @@ import time
 import sys
 import paddle
 import paddle.fluid as fluid
+import paddle.fluid.profiler as profiler
 import models
 import reader
 import argparse
@@ -28,6 +29,13 @@ add_arg('checkpoint',       str,   None,                 "Whether to resume chec
 add_arg('lr',               float, 0.1,                  "set learning rate.")
 add_arg('lr_strategy',      str,   "piecewise_decay",    "Set the learning rate decay strategy.")
 add_arg('model',            str,   "SE_ResNeXt50_32x4d", "Set the network to use.")
+add_arg('iterations',       int,   0,                    "The number of iterations. Zero or less means whole training set. More than 0 means the training set might be looped until # of iterations is reached.")
+add_arg('skip_test',        bool,  True,                 "Whether to skip test phase.")
+add_arg('profile',          bool,  False,                "If set, do profiling.")
+add_arg('skip_batch_num',   int,   0,                    "The number of first minibatches to skip as warm-up for better performance test.")
+add_arg('use_fake_data',    bool,  False,                "Use real data or fake data")
+# use_transpiler must be setting False, because of failing when True
+add_arg('parallel',         bool,  False,                "Whether use parallel training.")
 # yapf: enable
 
 model_list = [m for m in dir(models) if "__" not in m]
@@ -80,6 +88,17 @@ def optimizer_setting(params):
 
     return optimizer
 
+def user_data_reader(data):
+    """
+    Creates a data reader whose data output is user data.
+    """
+
+    def data_reader():
+        while True:
+            for b in data:
+                yield b
+
+    return data_reader
 
 def train(args):
     # parameters from arguments
@@ -93,6 +112,14 @@ def train(args):
 
     assert model_name in model_list, "{} is not in lists: {}".format(args.model,
                                                                      model_list)
+
+    if args.use_fake_data:
+        fake_train_data = [(np.random.rand(image_shape[0] * image_shape[1] * image_shape[2]).
+                            astype(np.float32), np.random.randint(1, class_dim))
+                           for _ in range(1)]
+        fake_test_data = [(np.random.rand(image_shape[0] * image_shape[1] * image_shape[2]).
+                           astype(np.float32), np.random.randint(1, class_dim))
+                          for _ in range(1)]
 
     image = fluid.layers.data(name='image', shape=image_shape, dtype='float32')
     label = fluid.layers.data(name='label', shape=[1], dtype='int64')
@@ -153,22 +180,46 @@ def train(args):
 
     train_batch_size = args.batch_size
     test_batch_size = 16
-    train_reader = paddle.batch(reader.train(), batch_size=train_batch_size)
-    test_reader = paddle.batch(reader.val(), batch_size=test_batch_size)
-    feeder = fluid.DataFeeder(place=place, feed_list=[image, label])
+    if args.use_fake_data:
+        train_reader = paddle.batch(
+            user_data_reader(fake_train_data), batch_size=args.batch_size)
+        test_reader = paddle.batch(
+            user_data_reader(fake_test_data), batch_size=test_batch_size)
+        feeder = fluid.DataFeeder(place=place, feed_list=[image, label])
+    else:
+        train_reader = paddle.batch(
+            reader.train(cycle=args.iterations > 0), batch_size=train_batch_size)
+        test_reader = paddle.batch(reader.test(), batch_size=test_batch_size)
+        feeder = fluid.DataFeeder(place=place, feed_list=[image, label])
 
-    train_exe = fluid.ParallelExecutor(use_cuda=True, loss_name=avg_cost.name)
+    train_exe = exe
+    if args.parallel:
+        train_exe = fluid.ParallelExecutor(
+            use_cuda=True if args.use_gpu else False, loss_name=avg_cost.name)
 
     fetch_list = [avg_cost.name, acc_top1.name, acc_top5.name]
 
+    iters = 0
     for pass_id in range(params["num_epochs"]):
+        iters = pass_id
         train_info = [[], [], []]
         test_info = [[], [], []]
+        batch_times = []
         for batch_id, data in enumerate(train_reader()):
+            if batch_id == args.skip_batch_num:
+                profiler.reset_profiler()
+            elif batch_id < args.skip_batch_num:
+                print("Warm-up iteration")
+            if args.iterations > 0 and batch_id == args.iterations + args.skip_batch_num:
+                break
             t1 = time.time()
-            loss, acc1, acc5 = train_exe.run(fetch_list, feed=feeder.feed(data))
+            loss, acc1, acc5 = train_exe.run(test_program,
+                                             fetch_list=fetch_list,
+                                             feed=feeder.feed(data))
             t2 = time.time()
             period = t2 - t1
+            batch_times.append(period)
+            fps = args.batch_size / period
             loss = np.mean(np.array(loss))
             acc1 = np.mean(np.array(acc1))
             acc5 = np.mean(np.array(acc5))
@@ -176,48 +227,50 @@ def train(args):
             train_info[1].append(acc1)
             train_info[2].append(acc5)
             if batch_id % 10 == 0:
-                print("Pass {0}, trainbatch {1}, loss {2}, \
-                       acc1 {3}, acc5 {4} time {5}"
+                print("Train pass {0}, trainbatch {1}, loss {2}, \
+                        acc1 {3}, acc5 {4}, latency {5}, fps {6}"
                                                    .format(pass_id, \
                        batch_id, loss, acc1, acc5, \
-                       "%2.2f sec" % period))
+                       "%2.2f sec" % period, fps))
                 sys.stdout.flush()
 
         train_loss = np.array(train_info[0]).mean()
         train_acc1 = np.array(train_info[1]).mean()
         train_acc5 = np.array(train_info[2]).mean()
-        cnt = 0
-        for test_batch_id, data in enumerate(test_reader()):
-            t1 = time.time()
-            loss, acc1, acc5 = exe.run(test_program,
-                                       fetch_list=fetch_list,
-                                       feed=feeder.feed(data))
-            t2 = time.time()
-            period = t2 - t1
-            loss = np.mean(loss)
-            acc1 = np.mean(acc1)
-            acc5 = np.mean(acc5)
-            test_info[0].append(loss * len(data))
-            test_info[1].append(acc1 * len(data))
-            test_info[2].append(acc5 * len(data))
-            cnt += len(data)
-            if test_batch_id % 10 == 0:
-                print("Pass {0},testbatch {1},loss {2}, \
-                       acc1 {3},acc5 {4},time {5}"
-                                                  .format(pass_id, \
-                       test_batch_id, loss, acc1, acc5, \
-                       "%2.2f sec" % period))
-                sys.stdout.flush()
 
-        test_loss = np.sum(test_info[0]) / cnt
-        test_acc1 = np.sum(test_info[1]) / cnt
-        test_acc5 = np.sum(test_info[2]) / cnt
+        if not args.skip_test:
+            cnt = 0
+            for test_batch_id, data in enumerate(test_reader()):
+                t1 = time.time()
+                loss, acc1, acc5 = exe.run(test_program,
+                                           fetch_list=fetch_list,
+                                           feed=feeder.feed(data))
+                t2 = time.time()
+                period = t2 - t1
+                loss = np.mean(loss)
+                acc1 = np.mean(acc1)
+                acc5 = np.mean(acc5)
+                test_info[0].append(loss * len(data))
+                test_info[1].append(acc1 * len(data))
+                test_info[2].append(acc5 * len(data))
+                cnt += len(data)
+                if test_batch_id % 10 == 0:
+                    print("Pass {0},testbatch {1},loss {2}, \
+                        acc1 {3},acc5 {4},time {5}"
+                                                    .format(pass_id, \
+                        test_batch_id, loss, acc1, acc5, \
+                        "%2.2f sec" % period))
+                    sys.stdout.flush()
 
-        print("End pass {0}, train_loss {1}, train_acc1 {2}, train_acc5 {3}, "
-              "test_loss {4}, test_acc1 {5}, test_acc5 {6}".format(pass_id, \
-              train_loss, train_acc1, train_acc5, test_loss, test_acc1, \
-              test_acc5))
-        sys.stdout.flush()
+            test_loss = np.sum(test_info[0]) / cnt
+            test_acc1 = np.sum(test_info[1]) / cnt
+            test_acc5 = np.sum(test_info[2]) / cnt
+
+            print("End pass {0}, train_loss {1}, train_acc1 {2}, train_acc5 {3}, "
+                "test_loss {4}, test_acc1 {5}, test_acc5 {6}".format(pass_id, \
+                train_loss, train_acc1, train_acc5, test_loss, test_acc1, \
+                test_acc5))
+            sys.stdout.flush()
 
         model_path = os.path.join(model_save_dir + '/' + model_name,
                                   str(pass_id))
@@ -225,11 +278,34 @@ def train(args):
             os.makedirs(model_path)
         fluid.io.save_persistables(exe, model_path)
 
+        latencies = batch_times[args.skip_batch_num:]
+        latency_avg = np.average(latencies)
+        latency_pc99 = np.percentile(latencies, 99)
+        fpses = np.divide(args.batch_size, latencies)
+        fps_avg = np.average(fpses)
+        fps_pc99 = np.percentile(fpses, 1)
+
+        # Benchmark output
+        print('\nTotal examples (incl. warm-up): %d' %
+              (iters * args.batch_size))
+        print('average latency: %.5f s, 99pc latency: %.5f s' % (latency_avg,
+                                                                 latency_pc99))
+        print('average fps: %.5f, fps for 99pc latency: %.5f' % (fps_avg,
+                                                                 fps_pc99))
+
 
 def main():
     args = parser.parse_args()
     print_arguments(args)
-    train(args)
+    if args.profile:
+        if args.use_gpu:
+            with profiler.cuda_profiler("cuda_profiler.txt", 'csv') as nvprof:
+                train(args)
+        else:
+            with profiler.profiler("CPU", sorted_key='total') as cpuprof:
+                train(args)
+    else:
+        train(args)
 
 
 if __name__ == '__main__':
