@@ -29,8 +29,8 @@ add_arg('use_fake_data',     bool,  False,          "Use real data or fake data"
 add_arg('skip_batch_num',    int,   0,              "The number of first minibatches to skip as warm-up for better performance test.")
 add_arg('skip_test',         bool,  True,           "Whether to skip test phase.")
 add_arg('num_epochs',        int,   120,            "number of epochs.")
+# use_transpiler must be setting False, because of failing when True
 add_arg('use_transpiler',    bool,  False,          "Whether to use transpiler.")
-
 # yapf: enable
 
 model_list = [m for m in dir(models) if "__" not in m]

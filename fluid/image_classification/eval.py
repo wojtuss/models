@@ -26,8 +26,8 @@ add_arg('model',            str, "SE_ResNeXt50_32x4d", "Set the network to use."
 add_arg('iterations',       int,  0,                   "The number of iterations. Zero or less means whole test set. More than 0 means the training set might be looped until # of iterations is reached.")
 add_arg('skip_batch_num',   int,  0,                   "The first num of minibatch num to skip, for better performance test.")
 add_arg('profile',          bool, False,               "If set, do profiling.")
+# use_transpiler must be setting False, because of failing when True
 add_arg('use_transpiler',   bool, False,               "Whether to use transpiler.")
-
 # yapf: enable
 
 model_list = [m for m in dir(models) if "__" not in m]

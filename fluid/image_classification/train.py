@@ -34,8 +34,8 @@ add_arg('skip_test',        bool,  True,                 "Whether to skip test p
 add_arg('profile',          bool,  False,                "If set, do profiling.")
 add_arg('skip_batch_num',   int,   0,                    "The number of first minibatches to skip as warm-up for better performance test.")
 add_arg('use_fake_data',    bool,  False,                "Use real data or fake data")
+# use_transpiler must be setting False, because of failing when True
 add_arg('parallel',         bool,  False,                "Whether use parallel training.")
-
 # yapf: enable
 
 model_list = [m for m in dir(models) if "__" not in m]
