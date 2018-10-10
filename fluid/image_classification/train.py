@@ -33,6 +33,9 @@ add_arg('iterations',       int,   0,                    "The number of iteratio
 add_arg('skip_test',        bool,  True,                 "Whether to skip test phase.")
 add_arg('profile',          bool,  False,                "If set, do profiling.")
 add_arg('skip_batch_num',   int,   0,                    "The number of first minibatches to skip as warm-up for better performance test.")
+add_arg('data_dir',         str,   "data/ILSVRC2012",    "A directory with train and test data files.")
+add_arg('train_file_list',  str,   "data/ILSVRC2012/train_list.txt",    "A file with a list of training data files.")
+add_arg('test_file_list',   str,   "data/ILSVRC2012/val_list.txt",      "A file with a list of test data files.")
 add_arg('use_fake_data',    bool,  False,                "Use real data or fake data")
 # use_transpiler must be setting False, because of failing when True
 add_arg('parallel',         bool,  False,                "Whether use parallel training.")
@@ -187,9 +190,17 @@ def train(args):
             user_data_reader(fake_test_data), batch_size=test_batch_size)
         feeder = fluid.DataFeeder(place=place, feed_list=[image, label])
     else:
+        cycle = args.iterations > 0
         train_reader = paddle.batch(
-            reader.train(cycle=args.iterations > 0), batch_size=train_batch_size)
-        test_reader = paddle.batch(reader.test(), batch_size=test_batch_size)
+            reader.train(file_list=args.train_file_list,
+                         data_dir=args.data_dir,
+                         cycle=cycle),
+            batch_size=train_batch_size)
+        test_reader = paddle.batch(
+            reader.test(file_list=args.test_file_list,
+                        data_dir=args.data_dir,
+                        cycle=cycle),
+            batch_size=test_batch_size)
         feeder = fluid.DataFeeder(place=place, feed_list=[image, label])
 
     train_exe = exe

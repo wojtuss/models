@@ -26,6 +26,8 @@ add_arg('model',            str, "SE_ResNeXt50_32x4d", "Set the network to use."
 add_arg('iterations',       int,  0,                   "The number of iterations. Zero or less means whole test set. More than 0 means the training set might be looped until # of iterations is reached.")
 add_arg('skip_batch_num',   int,  0,                   "The first num of minibatch num to skip, for better performance test.")
 add_arg('profile',          bool, False,               "If set, do profiling.")
+add_arg('data_dir',         str,  "data/ILSVRC2012",   "A directory with train and test data files.")
+add_arg('test_file_list',   str,  "data/ILSVRC2012/val_list.txt",      "A file with a list of test data files.")
 # use_transpiler must be setting False, because of failing when True
 add_arg('use_transpiler',   bool, False,               "Whether to use transpiler.")
 # yapf: enable
@@ -92,7 +94,11 @@ def eval(args):
 
         fluid.io.load_vars(exe, pretrained_model, predicate=if_exist)
 
-    val_reader = paddle.batch(reader.test(cycle=args.iterations>0), batch_size=args.batch_size)
+    val_reader = paddle.batch(
+        reader.test(file_list=args.test_file_list,
+                    data_dir=args.data_dir,
+                    cycle=args.iterations>0),
+        batch_size=args.batch_size)
     feeder = fluid.DataFeeder(place=place, feed_list=[image, label])
 
     fetch_list = [avg_cost.name, acc_top1.name, acc_top5.name]

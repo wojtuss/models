@@ -9,6 +9,7 @@ from PIL import Image, ImageEnhance
 random.seed(0)
 
 DATA_DIM = 224
+RESIZE_SIZE = 256
 
 THREAD = 8
 BUF_SIZE = 1024
@@ -106,7 +107,7 @@ def process_image(sample, mode, color_jitter, rotate):
             img = rotate_image(img)
         img = random_crop(img, DATA_DIM)
     else:
-        img = resize_short(img, DATA_DIM)
+        img = resize_short(img, RESIZE_SIZE)
         img = crop_image(img, target_size=DATA_DIM, center=True)
     if mode == 'train':
         if color_jitter:
@@ -128,6 +129,7 @@ def process_image(sample, mode, color_jitter, rotate):
 
 
 def _reader_creator(file_list,
+                    data_dir,
                     mode,
                     shuffle=False,
                     color_jitter=False,
@@ -142,10 +144,10 @@ def _reader_creator(file_list,
                 for line in lines:
                     if mode == 'train' or mode == 'test':
                         img_path, label = line.split()
-                        img_path = os.path.join(DATA_DIR, img_path)
+                        img_path = os.path.join(data_dir, img_path)
                         yield img_path, int(label)
                     elif mode == 'infer':
-                        img_path = os.path.join(DATA_DIR, line)
+                        img_path = os.path.join(data_dir, line)
                         yield [img_path]
                 if not cycle:
                     break
@@ -156,18 +158,22 @@ def _reader_creator(file_list,
     return paddle.reader.xmap_readers(mapper, reader, THREAD, BUF_SIZE)
 
 
-def train(file_list=TRAIN_LIST, cycle=False):
-    return _reader_creator(
-        file_list,
-        'train',
-        shuffle=True,
-        color_jitter=False,
-        rotate=False,
-        cycle=cycle)
+def train(file_list=TRAIN_LIST, data_dir=DATA_DIR, cycle=False):
+    return _reader_creator(file_list,
+                           data_dir,
+                           'train',
+                           shuffle=True,
+                           color_jitter=False,
+                           rotate=False,
+                           cycle=cycle)
 
 
-def test(file_list=TEST_LIST, cycle=False):
-    return _reader_creator(file_list, 'test', shuffle=False, cycle=cycle)
+def test(file_list=TEST_LIST, data_dir=DATA_DIR, cycle=False):
+    return _reader_creator(file_list,
+                           data_dir,
+                           'test',
+                           shuffle=False,
+                           cycle=cycle)
 
 
 def infer(file_list):

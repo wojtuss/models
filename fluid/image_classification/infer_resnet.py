@@ -148,8 +148,7 @@ def infer(args):
                 batch_size=args.batch_size)
         elif args.data_set == 'imagenet':
             infer_reader = paddle.batch(
-                # the train method allows for accuracy measurement
-                reader.train(
+                reader.test(
                     file_list=args.test_file_list,
                     data_dir=args.data_dir,
                     cycle=cycle),
