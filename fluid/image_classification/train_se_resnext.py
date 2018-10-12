@@ -57,12 +57,12 @@ def parse_args():
     parser.add_argument(
         '--iterations',
         type=int,
-        default=0,
+        default=3,
         help='The number of minibatches. 0 or less: whole dataset. Greater than 0: wraps the dataset up if necessary.')
     parser.add_argument(
         '--pass_num',
         type=int,
-        default=10,
+        default=1,
         help='The number of passes.')
     parser.add_argument(
         '--data_format',
@@ -142,6 +142,10 @@ def user_data_reader(data):
 
 
 def train(model, args):
+    os.environ['FLAGS_use_mkldnn'] = "0"
+    print("NOTICE:1. Even the globaly export FLAGS_use_mkldnn=true, the local FLAGS_use_mkldnn has been set False\n")
+    print("NOTICE:2. Keep iteration_num and pass_num small. After finishing, copy the /output/SE_ResNeXt50_32x4d/__model__ file together with weights from baidu for inference\n")
+
     if args.use_cprof:
         pr = cProfile.Profile()
         pr.enable()
