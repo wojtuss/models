@@ -1,7 +1,7 @@
 #export FLAGS_use_mkldnn=1
-export OMP_NUM_THREADS=1
-export KMP_AFFINITY=granularity=fine,compact,1,0
-export KMP_BLOCKTIME=1
+#export OMP_NUM_THREADS=1
+#export KMP_AFFINITY=granularity=fine,compact,1,0
+#export KMP_BLOCKTIME=1
 
 time python ../train_se_resnext.py \
 	--model 'SE_ResNeXt50_32x4d'\

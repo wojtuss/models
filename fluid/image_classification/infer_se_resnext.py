@@ -24,7 +24,7 @@ def print_arguments(args):
 def parse_args():
     parser = argparse.ArgumentParser('Convolution model benchmark.')
     parser.add_argument(
-        '--batch_size', type=int, default=64, help='The minibatch size.')
+        '--batch_size', type=int, default=1, help='The minibatch size.')
     parser.add_argument(
         '--use_fake_data',
         action='store_true',
@@ -32,13 +32,13 @@ def parse_args():
     parser.add_argument(
         '--skip_batch_num',
         type=int,
-        default=0,
+        default=10,
         help='The number of the first minibatches to skip in statistics, for better performance test.'
     )
     parser.add_argument(
         '--iterations',
         type=int,
-        default=0,
+        default=1000,
         help='The number of minibatches to process. 0 or less: whole dataset. Greater than 0: cycle the dataset if needed.'
     )
     parser.add_argument(
@@ -60,7 +60,9 @@ def parse_args():
         choices=['cifar10', 'flowers', 'imagenet'],
         help='Optional dataset for benchmark.')
     parser.add_argument(
-        '--profile', action='store_true', help='If set, do profiling.')
+        '--profile',
+	 action='store_true', 
+	 help='If set, do profiling.')
     parser.add_argument(
         '--infer_model_path',
         type=str,
@@ -100,33 +102,8 @@ def user_data_reader(data):
 
 
 def infer(args):
-    # if not os.path.exists(args.infer_model_path):
-    #     raise IOError("Invalid inference model path!")
-    #
-    # if args.data_set == "cifar10":
-    #     class_dim = 10
-    #     if args.data_format == 'NCHW':
-    #         dshape = [3, 32, 32]
-    #     else:
-    #         dshape = [32, 32, 3]
-    # elif args.data_set == "imagenet":
-    #     class_dim = 1000
-    #     if args.data_format == 'NCHW':
-    #         dshape = [3, 224, 224]
-    #     else:
-    #         dshape = [224, 224, 3]
-    # else:
-    #     class_dim = 102
-    #     if args.data_format == 'NCHW':
-    #         dshape = [3, 224, 224]
-    #     else:
-    #         dshape = [224, 224, 3]
 
     dshape = [3, 224, 224]
-
-    # fake_data = [(
-    #     np.random.rand(dshape[0] * dshape[1] * dshape[2]).astype(np.float32),
-    #     np.random.randint(1, class_dim)) for _ in range(1)]
 
     fake_data = [
         (1e-5*np.arange(dshape[0] * dshape[1] * dshape[2]).astype(np.float32), i) for i in range(50)]
@@ -134,12 +111,7 @@ def infer(args):
     image = fluid.layers.data(name='data', shape=dshape, dtype='float32')
     label = fluid.layers.data(name='label', shape=[1], dtype='int64')
 
-    # place = fluid.CUDAPlace(0) if args.device == 'GPU' else fluid.CPUPlace()
-    if args.device == 'GPU':
-        place = fluid.CUDAPlace(0)
-
-    else:
-        place = fluid.CPUPlace()
+    place = fluid.CUDAPlace(0) if args.device == 'GPU' else fluid.CPUPlace()
 
     exe = fluid.Executor(place)
 
@@ -187,7 +159,7 @@ def infer(args):
     if args.use_transpiler:
         inference_transpiler_program = program.clone()
         t = fluid.transpiler.InferenceTranspiler()
-        t.transpile(inference_transpiler_program, place)
+        t.transpile(program, place)
         program = inference_transpiler_program
 
     for data in infer_reader():
