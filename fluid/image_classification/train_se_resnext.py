@@ -143,10 +143,11 @@ def user_data_reader(data):
 
 def train(model, args):
     #os.environ['FLAGS_use_mkldnn'] = "0"
-    os.system('export FLAGS_use_mkldnn=0')   
+    #os.system('export FLAGS_use_mkldnn=0;echo $FLAGS_use_mkldnn')   
+    
     if ('FLAGS_use_mkldnn' in os.environ):
         if (os.environ['FLAGS_use_mkldnn']=="1"):
-            print("NOTICE: please set FLAGS_use_mkldnn to 0\n")
+            print("NOTICE: the FLAGS_use_mkldnn is set 1. Please set FLAGS_use_mkldnn to 0 in bash manually. We can not modify it in code because os.environ only works in python range while the training concerns c file and os.system in child process can not change variable in parent process\n")
             return;
     if args.use_cprof:
         pr = cProfile.Profile()

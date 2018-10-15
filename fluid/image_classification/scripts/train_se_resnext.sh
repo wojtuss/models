@@ -1,4 +1,4 @@
-#export FLAGS_use_mkldnn=1
+export FLAGS_use_mkldnn=0
 #export OMP_NUM_THREADS=1
 #export KMP_AFFINITY=granularity=fine,compact,1,0
 #export KMP_BLOCKTIME=1
