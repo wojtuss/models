@@ -142,10 +142,12 @@ def user_data_reader(data):
 
 
 def train(model, args):
-    os.environ['FLAGS_use_mkldnn'] = "0"
-    print("NOTICE:1. Even the globaly export FLAGS_use_mkldnn=true, the local FLAGS_use_mkldnn has been set False\n")
-    print("NOTICE:2. Keep iteration_num and pass_num small. After finishing, copy the /output/SE_ResNeXt50_32x4d/__model__ file together with weights from baidu for inference\n")
-
+    #os.environ['FLAGS_use_mkldnn'] = "0"
+    os.system('export FLAGS_use_mkldnn=0')   
+    if ('FLAGS_use_mkldnn' in os.environ):
+        if (os.environ['FLAGS_use_mkldnn']=="1"):
+            print("NOTICE: please set FLAGS_use_mkldnn to 0\n")
+            return;
     if args.use_cprof:
         pr = cProfile.Profile()
         pr.enable()
