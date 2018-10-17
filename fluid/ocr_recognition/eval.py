@@ -27,7 +27,7 @@ def evaluate(args, eval=ctc_eval, data_reader=ctc_reader):
     label = fluid.layers.data(
         name='label', shape=[1], dtype='int32', lod_level=1)
     evaluator, cost = eval(images, label, num_classes,
-        use_mkldnn=args.use_mkldnn, use_cudnn=True if args.use_gpu else False)
+        use_cudnn=True if args.use_gpu else False)
 
     # data reader
     test_reader = data_reader.test(
