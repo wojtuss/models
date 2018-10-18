@@ -159,7 +159,7 @@ def infer(args):
     if args.use_transpiler:
         inference_transpiler_program = program.clone()
         t = fluid.transpiler.InferenceTranspiler()
-        t.transpile(program, place)
+        t.transpile(inference_transpiler_program, place)
         program = inference_transpiler_program
 
     for data in infer_reader():
