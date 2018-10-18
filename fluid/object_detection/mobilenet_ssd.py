@@ -12,8 +12,7 @@ def conv_bn(input,
             channels=None,
             num_groups=1,
             act='relu',
-            use_cudnn=True,
-            use_mkldnn=False):
+            use_cudnn=True):
     parameter_attr = ParamAttr(learning_rate=0.1, initializer=MSRA())
     conv = fluid.layers.conv2d(
         input=input,
@@ -32,7 +31,7 @@ def conv_bn(input,
 
 
 def depthwise_separable(input, num_filters1, num_filters2, num_groups, stride,
-                        scale, use_cudnn=True, use_mkldnn=False):
+                        scale, use_cudnn=True):
     depthwise_conv = conv_bn(
         input=input,
         filter_size=3,
@@ -40,9 +39,7 @@ def depthwise_separable(input, num_filters1, num_filters2, num_groups, stride,
         stride=stride,
         padding=1,
         num_groups=int(num_groups * scale),
-        use_cudnn=use_cudnn,
-        # to be instrumented when depthwise conv2d op will handle use_mkldnn
-        use_mkldnn=False)
+        use_cudnn=use_cudnn)
 
     pointwise_conv = conv_bn(
         input=depthwise_conv,
@@ -50,13 +47,12 @@ def depthwise_separable(input, num_filters1, num_filters2, num_groups, stride,
         num_filters=int(num_filters2 * scale),
         stride=1,
         padding=0,
-        use_cudnn=use_cudnn,
-        use_mkldnn=use_mkldnn)
+        use_cudnn=use_cudnn)
     return pointwise_conv
 
 
 def extra_block(input, num_filters1, num_filters2, num_groups, stride, scale,
-                use_cudnn=True, use_mkldnn=False):
+                use_cudnn=True):
     # 1x1 conv
     pointwise_conv = conv_bn(
         input=input,
@@ -65,8 +61,7 @@ def extra_block(input, num_filters1, num_filters2, num_groups, stride, scale,
         stride=1,
         num_groups=int(num_groups * scale),
         padding=0,
-        use_cudnn=use_cudnn,
-        use_mkldnn=use_mkldnn)
+        use_cudnn=use_cudnn)
 
     # 3x3 conv
     normal_conv = conv_bn(
@@ -76,54 +71,49 @@ def extra_block(input, num_filters1, num_filters2, num_groups, stride, scale,
         stride=2,
         num_groups=int(num_groups * scale),
         padding=1,
-        use_cudnn=use_cudnn,
-        use_mkldnn=use_mkldnn)
+        use_cudnn=use_cudnn)
     return normal_conv
 
 
-def mobile_net(num_classes, img, img_shape, scale=1.0, use_cudnn=True,
-               use_mkldnn=False):
+def mobile_net(num_classes, img, img_shape, scale=1.0, use_cudnn=True):
     # 300x300
-    tmp = conv_bn(img, 3, int(32 * scale), 2, 1, 3, use_cudnn=use_cudnn,
-                  use_mkldnn=use_mkldnn)
+    tmp = conv_bn(img, 3, int(32 * scale), 2, 1, 3, use_cudnn=use_cudnn)
     # 150x150
-    tmp = depthwise_separable(tmp, 32, 64, 32, 1, scale, use_cudnn=use_cudnn,
-                              use_mkldnn=use_mkldnn)
-    tmp = depthwise_separable(tmp, 64, 128, 64, 2, scale, use_cudnn=use_cudnn,
-                              use_mkldnn=use_mkldnn)
+    tmp = depthwise_separable(tmp, 32, 64, 32, 1, scale, use_cudnn=use_cudnn)
+    tmp = depthwise_separable(tmp, 64, 128, 64, 2, scale, use_cudnn=use_cudnn)
     # 75x75
     tmp = depthwise_separable(tmp, 128, 128, 128, 1, scale,
-                              use_cudnn=use_cudnn, use_mkldnn=use_mkldnn)
+                              use_cudnn=use_cudnn)
     tmp = depthwise_separable(tmp, 128, 256, 128, 2, scale,
-                              use_cudnn=use_cudnn, use_mkldnn=use_mkldnn)
+                              use_cudnn=use_cudnn)
     # 38x38
     tmp = depthwise_separable(tmp, 256, 256, 256, 1, scale,
-                              use_cudnn=use_cudnn, use_mkldnn=use_mkldnn)
+                              use_cudnn=use_cudnn)
     tmp = depthwise_separable(tmp, 256, 512, 256, 2, scale,
-                              use_cudnn=use_cudnn, use_mkldnn=use_mkldnn)
+                              use_cudnn=use_cudnn)
 
     # 19x19
     for i in range(5):
         tmp = depthwise_separable(tmp, 512, 512, 512, 1, scale,
-                                  use_cudnn=use_cudnn, use_mkldnn=use_mkldnn)
+                                  use_cudnn=use_cudnn)
     module11 = tmp
     tmp = depthwise_separable(tmp, 512, 1024, 512, 2, scale,
-                              use_cudnn=use_cudnn, use_mkldnn=use_mkldnn)
+                              use_cudnn=use_cudnn)
 
     # 10x10
     module13 = depthwise_separable(tmp, 1024, 1024, 1024, 1, scale,
-                                   use_cudnn=use_cudnn, use_mkldnn=use_mkldnn)
+                                   use_cudnn=use_cudnn)
     module14 = extra_block(module13, 256, 512, 1, 2, scale,
-                           use_cudnn=use_cudnn, use_mkldnn=use_mkldnn)
+                           use_cudnn=use_cudnn)
     # 5x5
     module15 = extra_block(module14, 128, 256, 1, 2, scale,
-                           use_cudnn=use_cudnn, use_mkldnn=use_mkldnn)
+                           use_cudnn=use_cudnn)
     # 3x3
     module16 = extra_block(module15, 128, 256, 1, 2, scale,
-                           use_cudnn=use_cudnn, use_mkldnn=use_mkldnn)
+                           use_cudnn=use_cudnn)
     # 2x2
     module17 = extra_block(module16, 64, 128, 1, 2, scale,
-                           use_cudnn=use_cudnn, use_mkldnn=use_mkldnn)
+                           use_cudnn=use_cudnn)
 
     mbox_locs, mbox_confs, box, box_var = fluid.layers.multi_box_head(
         inputs=[module11, module13, module14, module15, module16, module17],

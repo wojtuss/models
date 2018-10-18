@@ -33,7 +33,6 @@ add_arg('mean_value_B',     float, 127.5,  "Mean value for B channel which will 
 add_arg('mean_value_G',     float, 127.5,  "Mean value for G channel which will be subtracted.")  #116.78
 add_arg('mean_value_R',     float, 127.5,  "Mean value for R channel which will be subtracted.")  #103.94
 add_arg('is_toy',           int,   0, "Toy for quick debug, 0 means using all data, while n means using only n sample.")
-parser.add_argument('--use_mkldnn', action='store_true', help='If set, use MKL-DNN library.')
 parser.add_argument('--test', action='store_true', help='If set, test the model.')
 #yapf: enable
 
@@ -67,7 +66,6 @@ def train(args,
     use_cudnn = True if args.use_gpu else False
 
     locs, confs, box, box_var = mobile_net(num_classes, image, image_shape,
-                                           use_mkldnn=args.use_mkldnn,
                                            use_cudnn=use_cudnn)
     nmsed_out = fluid.layers.detection_output(
         locs, confs, box, box_var, nms_threshold=args.nms_threshold)
