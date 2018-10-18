@@ -29,7 +29,6 @@ add_arg('resize_w',         int,   300,    "The resized image height.")
 add_arg('mean_value_B',     float, 127.5,  "Mean value for B channel which will be subtracted.")  #123.68
 add_arg('mean_value_G',     float, 127.5,  "Mean value for G channel which will be subtracted.")  #116.78
 add_arg('mean_value_R',     float, 127.5,  "Mean value for R channel which will be subtracted.")  #103.94
-parser.add_argument('--use_mkldnn', action='store_true', help='If set, use MKL-DNN library.')
 parser.add_argument('--profile', action='store_true', help='If set, do profiling.')
 # yapf: enable
 
@@ -52,8 +51,7 @@ def eval(args, data_args, test_list):
     use_cudnn = True if args.use_gpu else False
 
     locs, confs, box, box_var = mobile_net(num_classes, image, image_shape,
-                                           use_cudnn=use_cudnn,
-                                           use_mkldnn=args.use_mkldnn)
+                                           use_cudnn=use_cudnn)
     nmsed_out = fluid.layers.detection_output(
         locs, confs, box, box_var, nms_threshold=args.nms_threshold)
     loss = fluid.layers.ssd_loss(locs, confs, gt_box, gt_label, box, box_var)
