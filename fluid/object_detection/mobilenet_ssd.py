@@ -24,12 +24,11 @@ def conv_bn(input,
         groups=num_groups,
         act=None,
         use_cudnn=use_cudnn,
-        use_mkldnn=use_mkldnn,
         param_attr=parameter_attr,
         bias_attr=False)
     parameter_attr = ParamAttr(learning_rate=0.1, initializer=MSRA())
     bias_attr = ParamAttr(learning_rate=0.2)
-    return fluid.layers.batch_norm(input=conv, act=act, use_mkldnn=use_mkldnn)
+    return fluid.layers.batch_norm(input=conv, act=act)
 
 
 def depthwise_separable(input, num_filters1, num_filters2, num_groups, stride,
