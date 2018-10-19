@@ -42,6 +42,25 @@ DEFINE_bool(skip_passes, false, "Skip running passes.");
 DEFINE_bool(debug_display_images, false, "Show images in windows for debug.");
 // DECLARE_bool(profile);
 
+namespace {
+// Timer for timer
+class Timer {
+public:
+  std::chrono::high_resolution_clock::time_point start;
+  std::chrono::high_resolution_clock::time_point startu;
+
+  void tic() { start = std::chrono::high_resolution_clock::now(); }
+  double toc() {
+    startu = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> time_span =
+        std::chrono::duration_cast<std::chrono::duration<double>>(startu -
+                                                                  start);
+    double used_time_ms = static_cast<double>(time_span.count()) * 1000.0;
+    return used_time_ms;
+  }
+};
+}  // namespace
+
 namespace paddle {
 
 template <typename T>
@@ -238,10 +257,10 @@ void Main() {
   std::vector<PaddleTensor> output_slots;
 
   // run prediction
-  // inference::Timer timer;
-  // inference::Timer timer_total;
+  Timer timer;
+  Timer timer_total;
   std::vector<float> infer_accs;
-  // std::vector<double> batch_times;
+  std::vector<double> batch_times;
   std::vector<double> fpses;
   for (int i = 0; i < FLAGS_iterations + FLAGS_skip_batch_num; i++) {
     if (i > 0) {
@@ -265,27 +284,30 @@ void Main() {
                              FLAGS_height);
 
     if (i == FLAGS_skip_batch_num) {
-      // timer_total.tic();
+      timer_total.tic();
       if (FLAGS_profile) {
         paddle::platform::ResetProfiler();
       }
     }
     std::vector<PaddleTensor> input = {input_data, input_label};
-    // timer.tic();
+    timer.tic();
     CHECK(predictor->Run(input, &output_slots));
-    // double batch_time = timer.toc() / 1000;
+    double batch_time = timer.toc() / 1000;
     CHECK_GE(output_slots.size(), 3UL);
     CHECK_EQ(output_slots[1].lod.size(), 0UL);
     CHECK_EQ(output_slots[1].dtype, paddle::PaddleDType::FLOAT32);
-    // batch_times.push_back(batch_time);
+    batch_times.push_back(batch_time);
     float *acc1 = static_cast<float *>(output_slots[1].data.data());
     infer_accs.push_back(*acc1);
-    // double fps = FLAGS_batch_size / batch_time;
-    // fpses.push_back(fps);
+    double fps = FLAGS_batch_size / batch_time;
+    fpses.push_back(fps);
     std::string appx = (i < FLAGS_skip_batch_num) ? " (warm-up)" : "";
-    // printf("Iteration: %d%s, accuracy: %f, latency: %.5f s, fps: %f\n", i +
-    // 1,
-    //        appx.c_str(), *acc1, batch_time, fps);
+    printf("Iteration: %d%s, accuracy: %f, latency: %.5f s, fps: %f\n",
+           i + 1,
+           appx.c_str(),
+           *acc1,
+           batch_time,
+           fps);
   }
 
   if (FLAGS_profile) {
@@ -293,10 +315,10 @@ void Main() {
                                       "/tmp/profiler");
   }
 
-  // double total_samples = FLAGS_iterations * FLAGS_batch_size;
-  // double total_time = timer_total.toc() / 1000;
-  // PostprocessBenchmarkData(batch_times, infer_accs, fpses, total_time,
-  // total_samples);
+  double total_samples = FLAGS_iterations * FLAGS_batch_size;
+  double total_time = timer_total.toc() / 1000;
+  PostprocessBenchmarkData(
+      batch_times, infer_accs, fpses, total_time, total_samples);
 }
 
 }  // namespace paddle
@@ -307,4 +329,3 @@ int main(int argc, char **argv) {
   gflags::ShutDownCommandLineFlags();
   return 0;
 }
-
