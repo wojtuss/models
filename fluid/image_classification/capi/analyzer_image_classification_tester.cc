@@ -40,7 +40,7 @@ DEFINE_int32(channels, 3, "Width of the image.");
 DEFINE_bool(use_fake_data, false, "Use fake data (1,2,...).");
 DEFINE_bool(skip_passes, false, "Skip running passes.");
 DEFINE_bool(debug_display_images, false, "Show images in windows for debug.");
-DECLARE_bool(profile);
+// DECLARE_bool(profile);
 
 namespace paddle {
 
