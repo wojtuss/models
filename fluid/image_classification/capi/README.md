@@ -13,13 +13,16 @@ make -j <num_cpu_cores>
 You can use a script like below:
 ```
 #!/bin/bash
-FLAGS_use_mkldnn=1 \
-./test_analyzer_image_classification \
+cd build.debug
+OMP_NUM_THREADS=14 \
+./infer_image_classification \
         --infer_model=/home/sfraczek/source/Paddle-models/fluid/image_classification/output/resnet \
         --batch_size=50 \
         --skip_batch_num=0 \
         --iterations=10  \
         --profile \
         --data_list=/home/sfraczek/source/data/ILSVRC2012/val_list.txt \
-        --data_dir=/home/sfraczek/source/data/ILSVRC2012/
+        --data_dir=/home/sfraczek/source/data/ILSVRC2012/ \
+        --use_MKLDNN
+cd -
 ```
