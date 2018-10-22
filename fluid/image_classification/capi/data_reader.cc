@@ -152,7 +152,7 @@ bool DataReader::NextBatch(float* input, int64_t* label, int batch_size,
     }
 
     auto filename = data_dir_path + pieces.at(0);
-    label[i] = std::stoi(pieces.at(1));
+    if (label != nullptr) label[i] = std::stoi(pieces.at(1));
 
     cv::Mat image = cv::imread(filename, cv::IMREAD_COLOR);
 

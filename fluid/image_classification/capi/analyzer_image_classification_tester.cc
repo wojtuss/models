@@ -25,8 +25,6 @@
 #include "data_reader.h"
 #include "paddle/fluid/platform/profiler.h"
 
-DEFINE_bool(profile, false, "Turn on profiler for fluid");
-
 DEFINE_string(infer_model, "", "Directory of the inference model.");
 DEFINE_string(data_list, "", "Path to a file with a list of image files.");
 DEFINE_string(data_dir, "", "Path to a directory with image files.");
@@ -38,9 +36,12 @@ DEFINE_int32(height, 224, "Height of the image.");
 DEFINE_int32(width, 224, "Width of the image.");
 DEFINE_int32(channels, 3, "Width of the image.");
 DEFINE_bool(use_fake_data, false, "Use fake data (1,2,...).");
+DEFINE_bool(use_MKLDNN, false, "Use MKL-DNN.");
 DEFINE_bool(skip_passes, false, "Skip running passes.");
 DEFINE_bool(debug_display_images, false, "Show images in windows for debug.");
-// DECLARE_bool(profile);
+DEFINE_bool(with_labels, true, "The infer model do handle data labels.");
+DEFINE_bool(one_file_params, false, "Parameters of the model are in one file.");
+DEFINE_bool(profile, false, "Turn on profiler for fluid");
 
 namespace {
 // Timer for timer
@@ -64,14 +65,14 @@ public:
 namespace paddle {
 
 template <typename T>
-void fill_data(T *data, unsigned int count) {
+void fill_data(T* data, unsigned int count) {
   for (unsigned int i = 0; i < count; ++i) {
     *(data + i) = i;
   }
 }
 
 template <>
-void fill_data<float>(float *data, unsigned int count) {
+void fill_data<float>(float* data, unsigned int count) {
   static unsigned int seed = std::random_device()();
   static std::minstd_rand engine(seed);
   float mean = 0;
@@ -83,12 +84,12 @@ void fill_data<float>(float *data, unsigned int count) {
 }
 
 template <typename T>
-void SkipFirstNData(std::vector<T> &v, int n) {
+void SkipFirstNData(std::vector<T>& v, int n) {
   std::vector<T>(v.begin() + FLAGS_skip_batch_num, v.end()).swap(v);
 }
 
 template <typename T>
-T FindAverage(const std::vector<T> &v) {
+T FindAverage(const std::vector<T>& v) {
   CHECK_GE(v.size(), 0);
   return std::accumulate(v.begin(), v.end(), 0.0) / v.size();
 }
@@ -115,136 +116,160 @@ T FindStandardDev(std::vector<T> v) {
   return std;
 }
 
-void PostprocessBenchmarkData(std::vector<double> latencies,
-                              std::vector<float> infer_accs,
-                              std::vector<double> fpses,
-                              double total_time_sec,
+void PostprocessBenchmarkData(std::vector<double>& latencies,
+                              std::vector<float>& infer_accs,
+                              std::vector<double>& fpses, double total_time_sec,
                               int total_samples) {
-  // get rid of the first FLAGS_skip_batch_num data
   SkipFirstNData(latencies, FLAGS_skip_batch_num);
-  SkipFirstNData(infer_accs, FLAGS_skip_batch_num);
-  SkipFirstNData(fpses, FLAGS_skip_batch_num);
-
   double lat_avg = FindAverage(latencies);
-  float acc_avg = FindAverage(infer_accs);
-  double fps_avg = FindAverage(fpses);
-
   double lat_pc99 = FindPercentile(latencies, 99);
-  double fps_pc01 = FindPercentile(fpses, 1);
-
   double lat_std = FindStandardDev(latencies);
+
+  SkipFirstNData(fpses, FLAGS_skip_batch_num);
+  double fps_avg = FindAverage(fpses);
+  double fps_pc01 = FindPercentile(fpses, 1);
   double fps_std = FindStandardDev(fpses);
 
   float examples_per_sec = total_samples / total_time_sec;
 
   printf("\n\nAvg fps: %.5f, std fps: %.5f, fps for 99pc latency: %.5f\n",
-         fps_avg,
-         fps_std,
-         fps_pc01);
-  printf("Avg latency: %.5f, std latency: %.5f, 99pc latency: %.5f\n",
-         lat_avg,
-         lat_std,
-         lat_pc99);
+         fps_avg, fps_std, fps_pc01);
+  printf("Avg latency: %.5f, std latency: %.5f, 99pc latency: %.5f\n", lat_avg,
+         lat_std, lat_pc99);
   printf("Total examples: %d, total time: %.5f, total examples/sec: %.5f\n",
-         total_samples,
-         total_time_sec,
-         examples_per_sec);
+         total_samples, total_time_sec, examples_per_sec);
+
+  if (infer_accs.size() > 0) {
+    SkipFirstNData(infer_accs, FLAGS_skip_batch_num);
+    float acc_avg = FindAverage(infer_accs);
   printf("Avg accuracy: %f\n\n", acc_avg);
+  }
 }
 
-void Main() {
-  auto count = [](std::vector<int> &shapevec) {
-    auto sum = shapevec.size() > 0 ? 1 : 0;
-    for (unsigned int i = 0; i < shapevec.size(); ++i) {
-      sum *= shapevec[i];
-    }
-    return sum;
-  };
-
-  // define input: data
+paddle::PaddleTensor DefineInputData() {
   std::vector<int> shape;
   shape.push_back(FLAGS_batch_size);
   shape.push_back(FLAGS_channels);
   shape.push_back(FLAGS_height);
   shape.push_back(FLAGS_width);
-  paddle::PaddleTensor input_data;
-  input_data.name = "xx";
-  input_data.shape = shape;
+  paddle::PaddleTensor data;
+  data.name = "xx";
+  data.shape = shape;
+  return data;
+}
 
-  // define input: label
-  int label_size = FLAGS_batch_size;
-  paddle::PaddleTensor input_label;
-  input_label.data.Resize(label_size * sizeof(int64_t));
-  input_label.name = "yy";
-  input_label.shape = std::vector<int>({label_size, 1});
-  input_label.dtype = paddle::PaddleDType::INT64;
+paddle::PaddleTensor DefineInputLabels() {
+  paddle::PaddleTensor labels;
+  labels.data.Resize(FLAGS_batch_size * sizeof(int64_t));
+  labels.name = "yy";
+  labels.shape = std::vector<int>({FLAGS_batch_size, 1});
+  labels.dtype = paddle::PaddleDType::INT64;
+  return labels;
+}
 
+size_t Count(const std::vector<int>& shapevec) {
+  auto sum = shapevec.size() > 0 ? 1 : 0;
+  for (unsigned int i = 0; i < shapevec.size(); ++i) {
+    sum *= shapevec[i];
+  }
+  return sum;
+}
+
+void PrintInfo() {
+  std::cout << std::endl
+            << "--- Used Parameters: -----------------" << std::endl
+            << "Inference model: " << FLAGS_infer_model << std::endl
+            << "File with list of images: " << FLAGS_data_list << std::endl
+            << "Directory with images: " << FLAGS_data_dir << std::endl
+            << "Batch size: " << FLAGS_batch_size << std::endl
+            << "Iterations: " << FLAGS_iterations << std::endl
+            << "Number of batches to skip: " << FLAGS_skip_batch_num
+            << std::endl
+            << "Use fake data: " << FLAGS_use_fake_data << std::endl
+            << "Use MKL-DNN: " << FLAGS_use_MKLDNN << std::endl
+            << "Skip passes: " << FLAGS_skip_passes << std::endl
+            << "Debug display image: " << FLAGS_debug_display_images
+            << std::endl
+            << "Profile: " << FLAGS_profile << std::endl
+            << "With labels: " << FLAGS_with_labels << std::endl
+            << "One file params: " << FLAGS_one_file_params << std::endl
+            << "Channels: " << FLAGS_channels << std::endl
+            << "Height: " << FLAGS_height << std::endl
+            << "Width: " << FLAGS_width << std::endl
+            << "--------------------------------------" << std::endl;
+}
+
+void Main() {
   CHECK_GE(FLAGS_iterations, 0);
   CHECK_GE(FLAGS_skip_batch_num, 0);
+
+  PrintInfo();
+
+  paddle::PaddleTensor input_data = DefineInputData();
+  paddle::PaddleTensor input_labels = DefineInputLabels();
+  int labels_size = FLAGS_batch_size;
 
   // reader instance for not fake data
   std::unique_ptr<DataReader> reader;
   bool convert_to_rgb = true;
 
-  // Read first batch
+  // read the first batch
   if (FLAGS_use_fake_data) {
     // create fake data
-    input_data.data.Resize(count(shape) * sizeof(float));
-    fill_data<float>(static_cast<float *>(input_data.data.data()),
-                     count(shape));
-
+    input_data.data.Resize(Count(input_data.shape) * sizeof(float));
+    fill_data<float>(static_cast<float*>(input_data.data.data()),
+                     Count(input_data.shape));
     input_data.dtype = paddle::PaddleDType::FLOAT32;
 
-    std::cout << std::endl
-              << "Executing model: " << FLAGS_infer_model << std::endl
-              << "Batch Size: " << FLAGS_batch_size << std::endl
-              << "Channels: " << FLAGS_channels << std::endl
-              << "Height: " << FLAGS_height << std::endl
-              << "Width: " << FLAGS_width << std::endl;
-
-    // create fake label
-    fill_data<int64_t>(static_cast<int64_t *>(input_label.data.data()),
-                       label_size);
+    if (FLAGS_with_labels) {
+      // create fake labels
+      fill_data<int64_t>(static_cast<int64_t*>(input_labels.data.data()),
+                         labels_size);
+    }
   } else {
-    reader.reset(new DataReader(FLAGS_data_list,
-                                FLAGS_data_dir,
-                                FLAGS_width,
-                                FLAGS_height,
-                                FLAGS_channels,
-                                convert_to_rgb));
+    reader.reset(new DataReader(FLAGS_data_list, FLAGS_data_dir, FLAGS_width,
+                                FLAGS_height, FLAGS_channels, convert_to_rgb));
     if (!reader->SetSeparator('\t')) reader->SetSeparator(' ');
     // get imagenet data and label
-    input_data.data.Resize(count(shape) * sizeof(float));
+    input_data.data.Resize(Count(input_data.shape) * sizeof(float));
     input_data.dtype = PaddleDType::FLOAT32;
 
-    reader->NextBatch(static_cast<float *>(input_data.data.data()),
-                      static_cast<int64_t *>(input_label.data.data()),
-                      FLAGS_batch_size,
-                      FLAGS_debug_display_images);
+    reader->NextBatch(static_cast<float*>(input_data.data.data()),
+                      FLAGS_with_labels
+                          ? static_cast<int64_t*>(input_labels.data.data())
+                          : nullptr,
+                      FLAGS_batch_size, FLAGS_debug_display_images);
   }
 
-  // create predictor
+  // configure predictor
   contrib::AnalysisConfig config;
-  // MKLDNNAnalysisConfig config;
+  if (FLAGS_one_file_params) {
+    config.param_file = FLAGS_infer_model + "/params";
+    config.prog_file = FLAGS_infer_model + "/model";
+  } else {
   config.model_dir = FLAGS_infer_model;
-  // include mode: define which passes to include
-  config.SetIncludeMode();
+  }
+  config._use_mkldnn = FLAGS_use_MKLDNN;
+  config.SetIncludeMode();  // include mode: define which passes to run
   config.use_gpu = false;
   config.enable_ir_optim = true;
+
   if (!FLAGS_skip_passes) {
+    if (FLAGS_use_MKLDNN) {
+      // add passes to execute with MKL-DNN
+      config.ir_passes.push_back("conv_bn_fuse_pass");
+      config.ir_passes.push_back("conv_eltwiseadd_bn_fuse_pass");
+      config.ir_passes.push_back("conv_bias_mkldnn_fuse_pass");
+      config.ir_passes.push_back("conv_elementwise_add_mkldnn_fuse_pass");
+      config.ir_passes.push_back("conv_relu_mkldnn_fuse_pass");
+      config.ir_passes.push_back("fc_fuse_pass");
+    } else {
     // add passes to execute keeping the order - without MKL-DNN
     config.ir_passes.push_back("conv_bn_fuse_pass");
     config.ir_passes.push_back("fc_fuse_pass");
-#ifdef PADDLE_WITH_MKLDNN
-    // add passes to execute with MKL-DNN
-    config.ir_mkldnn_passes.push_back("conv_bn_fuse_pass");
-    config.ir_mkldnn_passes.push_back("conv_eltwiseadd_bn_fuse_pass");
-    config.ir_mkldnn_passes.push_back("conv_bias_mkldnn_fuse_pass");
-    config.ir_mkldnn_passes.push_back("conv_elementwise_add_mkldnn_fuse_pass");
-    config.ir_mkldnn_passes.push_back("conv_relu_mkldnn_fuse_pass");
-    config.ir_mkldnn_passes.push_back("fc_fuse_pass");
-#endif
   }
+  }
+
   auto predictor = CreatePaddlePredictor<contrib::AnalysisConfig,
                                          PaddleEngineKind::kAnalysis>(config);
 
@@ -263,51 +288,60 @@ void Main() {
   std::vector<double> batch_times;
   std::vector<double> fpses;
   for (int i = 0; i < FLAGS_iterations + FLAGS_skip_batch_num; i++) {
-    if (i > 0) {
-      if (!FLAGS_use_fake_data) {
-        if (!reader->NextBatch(static_cast<float *>(input_data.data.data()),
-                               static_cast<int64_t *>(input_label.data.data()),
-                               FLAGS_batch_size,
-                               FLAGS_debug_display_images)) {
-          std::cout << "No more full batches. stopping.";
-          break;
-        }
-      }
-    }
-
-    if (FLAGS_debug_display_images)
-      DataReader::drawImages(static_cast<float *>(input_data.data.data()),
-                             convert_to_rgb,
-                             FLAGS_batch_size,
-                             FLAGS_channels,
-                             FLAGS_width,
-                             FLAGS_height);
-
+    // start gathering performance data after `skip_batch_num` iterations
     if (i == FLAGS_skip_batch_num) {
       timer_total.tic();
       if (FLAGS_profile) {
         paddle::platform::ResetProfiler();
       }
     }
-    std::vector<PaddleTensor> input = {input_data, input_label};
+
+    // read next batch of data
+    if (i > 0) {
+      if (!FLAGS_use_fake_data) {
+        if (!reader->NextBatch(static_cast<float*>(input_data.data.data()),
+                               FLAGS_with_labels ? static_cast<int64_t*>(
+                                                       input_labels.data.data())
+                                                 : nullptr,
+                               FLAGS_batch_size, FLAGS_debug_display_images)) {
+          std::cout << "No more full batches. stopping.";
+          break;
+        }
+      }
+    }
+
+    // display images from batch if requested
+    if (FLAGS_debug_display_images)
+      DataReader::drawImages(static_cast<float*>(input_data.data.data()),
+                             convert_to_rgb, FLAGS_batch_size, FLAGS_channels,
+                             FLAGS_width, FLAGS_height);
+
+    // run inference
+    std::vector<PaddleTensor> input;
+    if (FLAGS_with_labels)
+      input = {input_data, input_labels};
+    else
+      input = {input_data};
     timer.tic();
     CHECK(predictor->Run(input, &output_slots));
     double batch_time = timer.toc() / 1000;
-    CHECK_GE(output_slots.size(), 3UL);
-    CHECK_EQ(output_slots[1].lod.size(), 0UL);
-    CHECK_EQ(output_slots[1].dtype, paddle::PaddleDType::FLOAT32);
     batch_times.push_back(batch_time);
-    float *acc1 = static_cast<float *>(output_slots[1].data.data());
-    infer_accs.push_back(*acc1);
     double fps = FLAGS_batch_size / batch_time;
     fpses.push_back(fps);
     std::string appx = (i < FLAGS_skip_batch_num) ? " (warm-up)" : "";
-    printf("Iteration: %d%s, accuracy: %f, latency: %.5f s, fps: %f\n",
-           i + 1,
-           appx.c_str(),
-           *acc1,
-           batch_time,
-           fps);
+    if (FLAGS_with_labels) {
+      CHECK_GE(output_slots.size(), 2UL);
+      CHECK_EQ(output_slots[1].lod.size(), 0UL);
+      CHECK_EQ(output_slots[1].dtype, paddle::PaddleDType::FLOAT32);
+      float* acc1 = static_cast<float*>(output_slots[1].data.data());
+      infer_accs.push_back(*acc1);
+      printf("Iteration: %d%s, accuracy: %f, latency: %.5f s, fps: %f\n", i + 1,
+             appx.c_str(), *acc1, batch_time, fps);
+    } else {
+      CHECK_GE(output_slots.size(), 1UL);
+      printf("Iteration: %d%s, latency: %.5f s, fps: %f\n", i + 1, appx.c_str(),
+             batch_time, fps);
+    }
   }
 
   if (FLAGS_profile) {
@@ -317,8 +351,8 @@ void Main() {
 
   double total_samples = FLAGS_iterations * FLAGS_batch_size;
   double total_time = timer_total.toc() / 1000;
-  PostprocessBenchmarkData(
-      batch_times, infer_accs, fpses, total_time, total_samples);
+  PostprocessBenchmarkData(batch_times, infer_accs, fpses, total_time,
+                           total_samples);
 }
 
 }  // namespace paddle
