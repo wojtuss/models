@@ -22,11 +22,6 @@ namespace paddle {
 
 namespace {
 
-// Images are resized to ResizeSize x ResizeSize ...
-const int ResizeSize = 256;
-// ... and then cropped to CropSize x CropSize
-const int CropSize = 224;
-
 cv::Mat center_crop_image(cv::Mat img, int width, int height) {
   auto w_start = (img.cols - width) / 2;
   auto h_start = (img.rows - height) / 2;
@@ -40,12 +35,17 @@ cv::Mat resize_short(cv::Mat img, int target_size) {
   auto resized_width = static_cast<int>(round(img.cols * percent));
   auto resized_height = static_cast<int>(round(img.rows * percent));
   cv::Mat resized_img;
-  cv::resize(img, resized_img, cv::Size(resized_width, resized_height), 0, 0,
+  cv::resize(img,
+             resized_img,
+             cv::Size(resized_width, resized_height),
+             0,
+             0,
              cv::INTER_LANCZOS4);
   return resized_img;
 }
 
-static void split(const std::string& str, char sep,
+static void split(const std::string& str,
+                  char sep,
                   std::vector<std::string>* pieces) {
   pieces->clear();
   if (str.empty()) {
@@ -65,13 +65,18 @@ static void split(const std::string& str, char sep,
 
 }  // namespace
 
-void DataReader::drawImages(float* input, bool is_rgb, int batch_size,
-                            int channels, int width, int height) {
+void DataReader::drawImages(float* input,
+                            bool is_rgb,
+                            int batch_size,
+                            int channels,
+                            int width,
+                            int height) {
   for (int b = 0; b < batch_size; b++) {
     std::vector<cv::Mat> fimage_channels;
     for (int c = 0; c < channels; c++) {
       fimage_channels.emplace_back(
-          cv::Size(width, height), CV_32FC1,
+          cv::Size(width, height),
+          CV_32FC1,
           input + width * height * c + width * height * channels * b);
     }
     cv::Mat mat;
@@ -87,13 +92,16 @@ void DataReader::drawImages(float* input, bool is_rgb, int batch_size,
 }
 
 DataReader::DataReader(const std::string& data_list_path,
-                       const std::string& data_dir_path, int width, int height,
-                       int channels, bool convert_to_rgb)
+                       const std::string& data_dir_path,
+                       int resize_size,
+                       int crop_size,
+                       int channels,
+                       bool convert_to_rgb)
     : data_list_path(data_list_path),
       data_dir_path(data_dir_path),
       file(data_list_path),
-      width(width),
-      height(height),
+      resize_size(resize_size),
+      crop_size(crop_size),
       channels(channels),
       convert_to_rgb(convert_to_rgb) {
   if (!file.is_open()) {
@@ -108,12 +116,11 @@ DataReader::DataReader(const std::string& data_list_path,
     throw std::invalid_argument("Only 3 channel image loading supported");
   }
 
-  if (!(width == height && width == CropSize)) {
+  if (resize_size < crop_size) {
     std::stringstream ss;
-    ss << "Width and heigth must be both " << CropSize << " because this reader is for "
-          "validation which does resize of smaller edge to " << ResizeSize << " and "
-          "center crop of (" << CropSize << ", " << CropSize << "). Your width and heigth are: ("
-       << width << ", " << height << ")." << std::endl;
+    ss << "resize_size (" << resize_size
+       << ") must be greater or equal (>=) crop_size (" << crop_size << ") ."
+       << std::endl;
     throw std::invalid_argument(ss.str());
   }
 }
@@ -135,7 +142,9 @@ bool DataReader::SetSeparator(char separator) {
   return (pieces.size() == 2);
 }
 
-bool DataReader::NextBatch(float* input, int64_t* label, int batch_size,
+bool DataReader::NextBatch(float* input,
+                           int64_t* label,
+                           int batch_size,
                            bool debug_display_images) {
   std::string line;
 
@@ -168,8 +177,8 @@ bool DataReader::NextBatch(float* input, int64_t* label, int batch_size,
     if (debug_display_images)
       cv::imshow(std::to_string(i) + " input image", image);
 
-    cv::Mat image_resized = resize_short(image, ResizeSize);
-    cv::Mat image_cropped = center_crop_image(image_resized, width, height);
+    cv::Mat image_resized = resize_short(image, resize_size);
+    cv::Mat image_cropped = center_crop_image(image_resized, crop_size, crop_size);
 
     cv::Mat fimage;
     image_cropped.convertTo(fimage, CV_32FC3);
@@ -193,7 +202,8 @@ bool DataReader::NextBatch(float* input, int64_t* label, int batch_size,
       for (int row = 0; row < fimage.rows; ++row) {
         const float* fimage_begin = fimage_channels[c].ptr<const float>(row);
         const float* fimage_end = fimage_begin + fimage.cols;
-        std::copy(fimage_begin, fimage_end,
+        std::copy(fimage_begin,
+                  fimage_end,
                   input + row * fimage.cols + c * fimage.cols * fimage.rows +
                       i * 3 * fimage.cols * fimage.rows);
       }

@@ -38,8 +38,8 @@ struct DataReader {
   std::string data_list_path;
   std::string data_dir_path;
   std::ifstream file;
-  int width;
-  int height;
+  int resize_size;
+  int crop_size;
   int channels;
   bool convert_to_rgb;
   char sep{'\t'};

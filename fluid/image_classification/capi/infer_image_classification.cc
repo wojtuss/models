@@ -32,8 +32,8 @@ DEFINE_int32(batch_size, 1, "Batch size.");
 DEFINE_int32(iterations, 1, "How many times to repeat run.");
 DEFINE_int32(skip_batch_num, 0, "How many minibatches to skip in statistics.");
 // dimensions of imagenet images are assumed as default:
-DEFINE_int32(height, 224, "Height of the image.");
-DEFINE_int32(width, 224, "Width of the image.");
+DEFINE_int32(resize_size, 256, "Images are resized to make smaller side have length resize_size while keeping aspect ratio.");
+DEFINE_int32(crop_size, 224, "Resized images are cropped to crop_size x crop_size.");
 DEFINE_int32(channels, 3, "Width of the image.");
 DEFINE_bool(use_fake_data, false, "Use fake data (1,2,...).");
 DEFINE_bool(use_MKLDNN, false, "Use MKL-DNN.");
@@ -157,8 +157,8 @@ paddle::PaddleTensor DefineInputData() {
   std::vector<int> shape;
   shape.push_back(FLAGS_batch_size);
   shape.push_back(FLAGS_channels);
-  shape.push_back(FLAGS_height);
-  shape.push_back(FLAGS_width);
+  shape.push_back(FLAGS_crop_size);
+  shape.push_back(FLAGS_crop_size);
   paddle::PaddleTensor data;
   data.name = "xx";
   data.shape = shape;
@@ -201,8 +201,8 @@ void PrintInfo() {
             << "With labels: " << FLAGS_with_labels << std::endl
             << "One file params: " << FLAGS_one_file_params << std::endl
             << "Channels: " << FLAGS_channels << std::endl
-            << "Height: " << FLAGS_height << std::endl
-            << "Width: " << FLAGS_width << std::endl
+            << "Height: " << FLAGS_crop_size << std::endl
+            << "Width: " << FLAGS_crop_size << std::endl
             << "--------------------------------------" << std::endl;
 }
 
@@ -236,8 +236,8 @@ void Main() {
   } else {
     reader.reset(new DataReader(FLAGS_data_list,
                                 FLAGS_data_dir,
-                                FLAGS_width,
-                                FLAGS_height,
+                                FLAGS_resize_size,
+                                FLAGS_crop_size,
                                 FLAGS_channels,
                                 convert_to_rgb));
     if (!reader->SetSeparator('\t')) reader->SetSeparator(' ');
@@ -329,8 +329,8 @@ void Main() {
                              convert_to_rgb,
                              FLAGS_batch_size,
                              FLAGS_channels,
-                             FLAGS_width,
-                             FLAGS_height);
+                             FLAGS_crop_size,
+                             FLAGS_crop_size);
 
     // run inference
     std::vector<PaddleTensor> input;
