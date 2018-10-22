@@ -118,7 +118,8 @@ T FindStandardDev(std::vector<T> v) {
 
 void PostprocessBenchmarkData(std::vector<double>& latencies,
                               std::vector<float>& infer_accs,
-                              std::vector<double>& fpses, double total_time_sec,
+                              std::vector<double>& fpses,
+                              double total_time_sec,
                               int total_samples) {
   SkipFirstNData(latencies, FLAGS_skip_batch_num);
   double lat_avg = FindAverage(latencies);
@@ -133,16 +134,22 @@ void PostprocessBenchmarkData(std::vector<double>& latencies,
   float examples_per_sec = total_samples / total_time_sec;
 
   printf("\n\nAvg fps: %.5f, std fps: %.5f, fps for 99pc latency: %.5f\n",
-         fps_avg, fps_std, fps_pc01);
-  printf("Avg latency: %.5f, std latency: %.5f, 99pc latency: %.5f\n", lat_avg,
-         lat_std, lat_pc99);
+         fps_avg,
+         fps_std,
+         fps_pc01);
+  printf("Avg latency: %.5f, std latency: %.5f, 99pc latency: %.5f\n",
+         lat_avg,
+         lat_std,
+         lat_pc99);
   printf("Total examples: %d, total time: %.5f, total examples/sec: %.5f\n",
-         total_samples, total_time_sec, examples_per_sec);
+         total_samples,
+         total_time_sec,
+         examples_per_sec);
 
   if (infer_accs.size() > 0) {
     SkipFirstNData(infer_accs, FLAGS_skip_batch_num);
     float acc_avg = FindAverage(infer_accs);
-  printf("Avg accuracy: %f\n\n", acc_avg);
+    printf("Avg accuracy: %f\n\n", acc_avg);
   }
 }
 
@@ -227,8 +234,12 @@ void Main() {
                          labels_size);
     }
   } else {
-    reader.reset(new DataReader(FLAGS_data_list, FLAGS_data_dir, FLAGS_width,
-                                FLAGS_height, FLAGS_channels, convert_to_rgb));
+    reader.reset(new DataReader(FLAGS_data_list,
+                                FLAGS_data_dir,
+                                FLAGS_width,
+                                FLAGS_height,
+                                FLAGS_channels,
+                                convert_to_rgb));
     if (!reader->SetSeparator('\t')) reader->SetSeparator(' ');
     // get imagenet data and label
     input_data.data.Resize(Count(input_data.shape) * sizeof(float));
@@ -238,7 +249,8 @@ void Main() {
                       FLAGS_with_labels
                           ? static_cast<int64_t*>(input_labels.data.data())
                           : nullptr,
-                      FLAGS_batch_size, FLAGS_debug_display_images);
+                      FLAGS_batch_size,
+                      FLAGS_debug_display_images);
   }
 
   // configure predictor
@@ -247,7 +259,7 @@ void Main() {
     config.param_file = FLAGS_infer_model + "/params";
     config.prog_file = FLAGS_infer_model + "/model";
   } else {
-  config.model_dir = FLAGS_infer_model;
+    config.model_dir = FLAGS_infer_model;
   }
   config._use_mkldnn = FLAGS_use_MKLDNN;
   config.SetIncludeMode();  // include mode: define which passes to run
@@ -264,10 +276,10 @@ void Main() {
       config.ir_passes.push_back("conv_relu_mkldnn_fuse_pass");
       config.ir_passes.push_back("fc_fuse_pass");
     } else {
-    // add passes to execute keeping the order - without MKL-DNN
-    config.ir_passes.push_back("conv_bn_fuse_pass");
-    config.ir_passes.push_back("fc_fuse_pass");
-  }
+      // add passes to execute keeping the order - without MKL-DNN
+      config.ir_passes.push_back("conv_bn_fuse_pass");
+      config.ir_passes.push_back("fc_fuse_pass");
+    }
   }
 
   auto predictor = CreatePaddlePredictor<contrib::AnalysisConfig,
@@ -303,7 +315,8 @@ void Main() {
                                FLAGS_with_labels ? static_cast<int64_t*>(
                                                        input_labels.data.data())
                                                  : nullptr,
-                               FLAGS_batch_size, FLAGS_debug_display_images)) {
+                               FLAGS_batch_size,
+                               FLAGS_debug_display_images)) {
           std::cout << "No more full batches. stopping.";
           break;
         }
@@ -313,8 +326,11 @@ void Main() {
     // display images from batch if requested
     if (FLAGS_debug_display_images)
       DataReader::drawImages(static_cast<float*>(input_data.data.data()),
-                             convert_to_rgb, FLAGS_batch_size, FLAGS_channels,
-                             FLAGS_width, FLAGS_height);
+                             convert_to_rgb,
+                             FLAGS_batch_size,
+                             FLAGS_channels,
+                             FLAGS_width,
+                             FLAGS_height);
 
     // run inference
     std::vector<PaddleTensor> input;
@@ -335,12 +351,19 @@ void Main() {
       CHECK_EQ(output_slots[1].dtype, paddle::PaddleDType::FLOAT32);
       float* acc1 = static_cast<float*>(output_slots[1].data.data());
       infer_accs.push_back(*acc1);
-      printf("Iteration: %d%s, accuracy: %f, latency: %.5f s, fps: %f\n", i + 1,
-             appx.c_str(), *acc1, batch_time, fps);
+      printf("Iteration: %d%s, accuracy: %f, latency: %.5f s, fps: %f\n",
+             i + 1,
+             appx.c_str(),
+             *acc1,
+             batch_time,
+             fps);
     } else {
       CHECK_GE(output_slots.size(), 1UL);
-      printf("Iteration: %d%s, latency: %.5f s, fps: %f\n", i + 1, appx.c_str(),
-             batch_time, fps);
+      printf("Iteration: %d%s, latency: %.5f s, fps: %f\n",
+             i + 1,
+             appx.c_str(),
+             batch_time,
+             fps);
     }
   }
 
@@ -351,13 +374,13 @@ void Main() {
 
   double total_samples = FLAGS_iterations * FLAGS_batch_size;
   double total_time = timer_total.toc() / 1000;
-  PostprocessBenchmarkData(batch_times, infer_accs, fpses, total_time,
-                           total_samples);
+  PostprocessBenchmarkData(
+      batch_times, infer_accs, fpses, total_time, total_samples);
 }
 
 }  // namespace paddle
 
-int main(int argc, char **argv) {
+int main(int argc, char** argv) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
   paddle::Main();
   gflags::ShutDownCommandLineFlags();
