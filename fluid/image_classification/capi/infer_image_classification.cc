@@ -42,6 +42,8 @@ DEFINE_bool(debug_display_images, false, "Show images in windows for debug.");
 DEFINE_bool(with_labels, true, "The infer model do handle data labels.");
 DEFINE_bool(one_file_params, false, "Parameters of the model are in one file.");
 DEFINE_bool(profile, false, "Turn on profiler for fluid");
+DEFINE_int32(paddle_num_threads, 1, "Number of threads for each paddle instance.");
+
 
 namespace {
 // Timer for timer
@@ -201,8 +203,8 @@ void PrintInfo() {
             << "With labels: " << FLAGS_with_labels << std::endl
             << "One file params: " << FLAGS_one_file_params << std::endl
             << "Channels: " << FLAGS_channels << std::endl
-            << "Height: " << FLAGS_crop_size << std::endl
-            << "Width: " << FLAGS_crop_size << std::endl
+            << "Resize size: " << FLAGS_resize_size << std::endl
+            << "Crop size: " << FLAGS_crop_size << std::endl
             << "--------------------------------------" << std::endl;
 }
 
@@ -383,6 +385,5 @@ void Main() {
 int main(int argc, char** argv) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
   paddle::Main();
-  gflags::ShutDownCommandLineFlags();
   return 0;
 }

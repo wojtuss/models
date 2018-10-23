@@ -52,7 +52,7 @@ if (EXISTS ${PADDLE_ABS_PATH})
     link_directories(${PADDLE_ABS_PATH}/third_party/install/gflags/lib)
     link_directories(${PADDLE_ABS_PATH}/third_party/install/glog/lib)
 else ()
-    message(FATAL_ERROR "'${PADDLE_ABS_PATH}' does not exist.\nPlease set -DPADDLE_ROOT=/path/to/your/fluid_inference_lib/")
+    message(FATAL_ERROR "'${PADDLE_ABS_PATH}' does not exist.\nPlease set -DPADDLE_ROOT=/path/to/Paddle/build/fluid_install_dir/")
 endif ()
 
 set (fluid_lib_path ${PADDLE_ABS_PATH}/paddle/fluid/inference)
@@ -60,7 +60,7 @@ if (EXISTS ${fluid_lib_path})
     link_directories(${PADDLE_ABS_PATH}/paddle/fluid/inference)
     link_libraries(paddle_fluid)
 else ()
-    message(FATAL_ERROR "Fluid inference lib not found.\nPlease set -DPADDLE_ROOT=/path/to/your/fluid_inference_lib")
+    message(FATAL_ERROR "Fluid inference lib not found.\nPlease set -DPADDLE_ROOT=/path/to/Paddle/build/fluid_install_dir")
 endif ()
 
 # add mkldnn library if it exitsts

@@ -16,9 +16,9 @@ cmake .. -DWITH_DOC=OFF -DWITH_GPU=OFF -DWITH_DISTRIBUTE=OFF -DWITH_MKLDNN=ON -D
 make -j <num_cpu_cores>
 ```
 ## 2. Build paddle's target `fluid_install_dir`
-While still staying in `<path_to_paddle>/build`, build the target `inference_lib_dist`:
+While still staying in `/path/to/Paddle/build`, build the target `fluid_lib_dist`:
 ```
-make -j <num_cpu_cores> inference_lib_dist
+make -j <num_cpu_cores> fluid_lib_dist
 ```
 Now a directory should exist in build directory named `fluid_install_dir`. Remember that path.
 ## 3. Build C-API inference application
@@ -26,33 +26,13 @@ Now move to where this README.md is (... Paddle-models/fluid/image_classificatio
 ```
 mkdir build
 cd build
-cmake .. -DPADDLE_ROOT=<path_to>/Paddle/build/fluid_install_dir
+cmake .. -DPADDLE_ROOT=/path/to/Paddle/build/fluid_install_dir
 make
 ```
 # Run
 Now, if everything built successfully, you can use a script like below:
 ```
 #!/bin/bash
-OMP_NUM_THREADS=14 \
-./infer_image_classification \
-        --infer_model=<path_to_directory_with_model> \
-        --batch_size=50 \
-        --skip_batch_num=0 \
-        --iterations=10  \
-        --profile \
-        --data_list=<path_to>/ILSVRC2012/val_list.txt \
-        --data_dir=<path_to>/ILSVRC2012/ \
-        --use_MKLDNN
-```
-The command as above requires the inference model (passed via the `infer_model`
-option) to return accuracy as the second output and model parameters to be
-stored in separate files.
-
-To run inference on a model without accuracy, with parameters stored
-in a single file, and with input image size 318x318, run:
-```
-#!/bin/bash
-OMP_NUM_THREADS=14 \
 ./infer_image_classification \
         --infer_model=<path_to_directory_with_model> \
         --batch_size=50 \
@@ -62,8 +42,28 @@ OMP_NUM_THREADS=14 \
         --data_list=<path_to>/ILSVRC2012/val_list.txt \
         --data_dir=<path_to>/ILSVRC2012/ \
         --use_MKLDNN \
-	--with_labels=0 \
-	--one_file_params=1 \
-	--resize_size=318 \
-	--crop_size=318
+        --paddle_num_threads=<num_cpu_cores>
+```
+The command as above requires the inference model (passed via the `infer_model`
+option) to return accuracy as the second output and model parameters to be
+stored in separate files.
+
+To run inference on a model without accuracy, with parameters stored
+in a single file, and with input image size 318x318, run:
+```
+#!/bin/bash
+./infer_image_classification \
+        --infer_model=<path_to_directory_with_model> \
+        --batch_size=50 \
+        --skip_batch_num=0 \
+        --iterations=10  \
+        --profile \
+        --data_list=<path_to>/ILSVRC2012/val_list.txt \
+        --data_dir=<path_to>/ILSVRC2012/ \
+        --use_MKLDNN \
+        --paddle_num_threads=<num_cpu_cores>
+        --with_labels=0 \
+        --one_file_params=1 \
+        --resize_size=318 \
+        --crop_size=318
 ```
