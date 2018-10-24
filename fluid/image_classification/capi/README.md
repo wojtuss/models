@@ -41,7 +41,7 @@ Now, if everything built successfully, you can use a script like below:
         --profile \
         --data_list=<path_to>/ILSVRC2012/val_list.txt \
         --data_dir=<path_to>/ILSVRC2012/ \
-        --use_MKLDNN \
+        --use_mkldnn \
         --paddle_num_threads=<num_cpu_cores>
 ```
 The command as above requires the inference model (passed via the `infer_model`
@@ -60,7 +60,7 @@ in a single file, and with input image size 318x318, run:
         --profile \
         --data_list=<path_to>/ILSVRC2012/val_list.txt \
         --data_dir=<path_to>/ILSVRC2012/ \
-        --use_MKLDNN \
+        --use_mkldnn \
         --paddle_num_threads=<num_cpu_cores>
         --with_labels=0 \
         --one_file_params=1 \

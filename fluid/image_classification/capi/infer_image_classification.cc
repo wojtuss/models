@@ -32,18 +32,24 @@ DEFINE_int32(batch_size, 1, "Batch size.");
 DEFINE_int32(iterations, 1, "How many times to repeat run.");
 DEFINE_int32(skip_batch_num, 0, "How many minibatches to skip in statistics.");
 // dimensions of imagenet images are assumed as default:
-DEFINE_int32(resize_size, 256, "Images are resized to make smaller side have length resize_size while keeping aspect ratio.");
-DEFINE_int32(crop_size, 224, "Resized images are cropped to crop_size x crop_size.");
+DEFINE_int32(resize_size,
+             256,
+             "Images are resized to make smaller side have length resize_size "
+             "while keeping aspect ratio.");
+DEFINE_int32(crop_size,
+             224,
+             "Resized images are cropped to crop_size x crop_size.");
 DEFINE_int32(channels, 3, "Width of the image.");
 DEFINE_bool(use_fake_data, false, "Use fake data (1,2,...).");
-DEFINE_bool(use_MKLDNN, false, "Use MKL-DNN.");
+DEFINE_bool(use_mkldnn, false, "Use MKL-DNN.");
 DEFINE_bool(skip_passes, false, "Skip running passes.");
 DEFINE_bool(debug_display_images, false, "Show images in windows for debug.");
 DEFINE_bool(with_labels, true, "The infer model do handle data labels.");
 DEFINE_bool(one_file_params, false, "Parameters of the model are in one file.");
 DEFINE_bool(profile, false, "Turn on profiler for fluid");
-DEFINE_int32(paddle_num_threads, 1, "Number of threads for each paddle instance.");
-
+DEFINE_int32(paddle_num_threads,
+             1,
+             "Number of threads for each paddle instance.");
 
 namespace {
 // Timer for timer
@@ -191,11 +197,12 @@ void PrintInfo() {
             << "File with list of images: " << FLAGS_data_list << std::endl
             << "Directory with images: " << FLAGS_data_dir << std::endl
             << "Batch size: " << FLAGS_batch_size << std::endl
+            << "Padlle num threads: " << FLAGS_paddle_num_threads << std::endl
             << "Iterations: " << FLAGS_iterations << std::endl
             << "Number of batches to skip: " << FLAGS_skip_batch_num
             << std::endl
             << "Use fake data: " << FLAGS_use_fake_data << std::endl
-            << "Use MKL-DNN: " << FLAGS_use_MKLDNN << std::endl
+            << "Use MKL-DNN: " << FLAGS_use_mkldnn << std::endl
             << "Skip passes: " << FLAGS_skip_passes << std::endl
             << "Debug display image: " << FLAGS_debug_display_images
             << std::endl
@@ -263,13 +270,13 @@ void Main() {
   } else {
     config.model_dir = FLAGS_infer_model;
   }
-  config._use_mkldnn = FLAGS_use_MKLDNN;
+  config._use_mkldnn = FLAGS_use_mkldnn;
   config.SetIncludeMode();  // include mode: define which passes to run
   config.use_gpu = false;
   config.enable_ir_optim = true;
 
   if (!FLAGS_skip_passes) {
-    if (FLAGS_use_MKLDNN) {
+    if (FLAGS_use_mkldnn) {
       // add passes to execute with MKL-DNN
       config.ir_passes.push_back("conv_bn_fuse_pass");
       config.ir_passes.push_back("conv_eltwiseadd_bn_fuse_pass");
