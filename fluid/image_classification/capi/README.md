@@ -1,7 +1,7 @@
 # How to build C-API application
 In order to build C-API inference application follow these three steps:
 1. build paddle.
-2. build paddle's target `fluid_install_dir`.
+2. build paddle's target `fluid_lib_dist`.
 3. build capi inference application.
 
 Each one will be shortly described below.
@@ -15,7 +15,7 @@ cd build
 cmake .. -DWITH_DOC=OFF -DWITH_GPU=OFF -DWITH_DISTRIBUTE=OFF -DWITH_MKLDNN=ON -DWITH_GOLANG=OFF -DWITH_SWIG_PY=ON -DWITH_TESTING=ON -DCMAKE_BUILD_TYPE=Debug -DWITH_TIMER=OFF -DWITH_PROFILER=OFF -DWITH_FLUID_ONLY=ON -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
 make -j <num_cpu_cores>
 ```
-## 2. Build paddle's target `fluid_install_dir`
+## 2. Build paddle's target `fluid_lib_dist`
 While still staying in `/path/to/Paddle/build`, build the target `fluid_lib_dist`:
 ```
 make -j <num_cpu_cores> fluid_lib_dist
