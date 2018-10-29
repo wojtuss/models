@@ -271,9 +271,13 @@ void Main() {
     config.model_dir = FLAGS_infer_model;
   }
   config._use_mkldnn = FLAGS_use_mkldnn;
-  config.SetIncludeMode();  // include mode: define which passes to run
+  config.ir_mode =
+      contrib::AnalysisConfig::IrPassMode::kInclude;  // include mode:
+                                                      // define which
+                                                      // passes to run
   config.use_gpu = false;
   config.enable_ir_optim = true;
+  config.ir_passes.clear();
 
   if (!FLAGS_skip_passes) {
     if (FLAGS_use_mkldnn) {
