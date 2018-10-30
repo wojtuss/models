@@ -8,6 +8,7 @@ import paddle
 
 import reader
 
+
 def parse_args():
     parser = argparse.ArgumentParser("Run inference.")
     parser.add_argument(
@@ -37,19 +38,14 @@ def parse_args():
         default='data/label_dict',
         help='A file with test labels. (default: %(default)s)')
     parser.add_argument(
-        '--num_passes',
-        type=int,
-        default=1,
-        help='The number of passes.')
+        '--num_passes', type=int, default=1, help='The number of passes.')
     parser.add_argument(
         '--skip_pass_num',
         type=int,
         default=0,
         help='The first num of passes to skip in statistics calculations.')
     parser.add_argument(
-        '--profile',
-        action='store_true',
-        help='If set, do profiling.')
+        '--profile', action='store_true', help='If set, do profiling.')
     args = parser.parse_args()
     return args
 
@@ -65,6 +61,21 @@ def load_reverse_dict(dict_path):
     return dict((idx, line.strip().split("\t")[0])
                 for idx, line in enumerate(open(dict_path, "r").readlines()))
 
+def to_lodtensor(data, place):
+    seq_lens = [len(seq) for seq in data]
+    cur_len = 0
+    lod = [cur_len]
+    for l in seq_lens:
+        cur_len += l
+        lod.append(cur_len)
+    flattened_data = np.concatenate(data, axis=0).astype("int64")
+    flattened_data = flattened_data.reshape([len(flattened_data), 1])
+    res = fluid.LoDTensor()
+    res.set(flattened_data, place)
+    res.set_lod([lod])
+    return res
+
+
 
 def infer(args):
     word = fluid.layers.data(name='word', shape=[1], dtype='int64', lod_level=1)
@@ -75,8 +86,8 @@ def infer(args):
 
     label_reverse_dict = load_reverse_dict(args.test_label_file)
 
-    test_data = paddle.batch(reader.file_reader(args.test_data_dir),
-                                batch_size=args.batch_size)
+    test_data = paddle.batch(
+        reader.file_reader(args.test_data_dir), batch_size=args.batch_size)
     place = fluid.CUDAPlace(0) if args.device == 'GPU' else fluid.CPUPlace()
     feeder = fluid.DataFeeder(feed_list=[word, mention, target], place=place)
     exe = fluid.Executor(place)
@@ -84,7 +95,7 @@ def infer(args):
     inference_scope = fluid.core.Scope()
     with fluid.scope_guard(inference_scope):
         [inference_program, feed_target_names,
-            fetch_targets] = fluid.io.load_inference_model(args.model_path, exe)
+         fetch_targets] = fluid.io.load_inference_model(args.model_path, exe)
         total_passes = args.num_passes + args.skip_pass_num
         batch_times = [0] * total_passes
         word_counts = [0] * total_passes
@@ -97,11 +108,15 @@ def infer(args):
                 profiler.reset_profiler()
             iters = 0
             for data in test_data():
+                word = to_lodtensor(map(lambda x: x[0], data), place)
+                mention = to_lodtensor(map(lambda x: x[1], data), place)
+
                 start = time.time()
                 crf_decode = exe.run(inference_program,
-                                    feed=feeder.feed(data),
-                                    fetch_list=fetch_targets,
-                                    return_numpy=False)
+                                     feed={"word": word,
+                                           "mention": mention},
+                                     fetch_list=fetch_targets,
+                                     return_numpy=False)
                 batch_time = time.time() - start
                 lod_info = (crf_decode[0].lod())[0]
                 np_data = np.array(crf_decode[0])
@@ -128,9 +143,10 @@ def infer(args):
             wps = word_counts[pass_id] / batch_times[pass_id]
             wpses[pass_id] = wps
 
-            print("Pass: %d, iterations (total): %d (%d), latency: %.5f s, words: %d, wps: %f" %
-                  (pass_id, iters, all_iters, batch_times[pass_id], word_counts[pass_id], wps))
-
+            print(
+                "Pass: %d, iterations (total): %d (%d), latency: %.5f s, words: %d, wps: %f"
+                % (pass_id, iters, all_iters, batch_times[pass_id],
+                   word_counts[pass_id], wps))
 
     # Postprocess benchmark data
     latencies = batch_times[args.skip_pass_num:]
