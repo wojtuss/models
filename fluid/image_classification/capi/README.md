@@ -1,3 +1,8 @@
+# C-API inference application
+The `infer_image_classification` application serves for running C-API based
+inference benchmark for image classification models: ResNet50, SE-ResNeXt50
+and MobileNet-v1.
+
 # How to build C-API application
 In order to build C-API inference application follow these three steps:
 1. build paddle.

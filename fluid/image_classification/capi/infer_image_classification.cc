@@ -15,14 +15,11 @@
 //#include "paddle/fluid/inference/analysis/analyzer.h"
 #include <gflags/gflags.h>
 #include <glog/logging.h>  // use glog instead of PADDLE_ENFORCE to avoid importing other paddle header files.
-//#include <gtest/gtest.h>
 #include <random>
+#include "data_reader.h"
 #include "paddle/fluid/framework/ir/pass.h"
-//#include "paddle/fluid/inference/analysis/ut_helper.h"
 #include "paddle/fluid/inference/paddle_inference_api.h"
 #include "paddle/fluid/inference/paddle_inference_pass.h"
-//#include "paddle/fluid/inference/helper.h"
-#include "data_reader.h"
 #include "paddle/fluid/platform/profiler.h"
 
 DEFINE_string(infer_model, "", "Directory of the inference model.");
