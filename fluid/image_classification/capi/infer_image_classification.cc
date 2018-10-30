@@ -254,12 +254,15 @@ void Main() {
     input_data.data.Resize(Count(input_data.shape) * sizeof(float));
     input_data.dtype = PaddleDType::FLOAT32;
 
-    reader->NextBatch(static_cast<float*>(input_data.data.data()),
-                      FLAGS_with_labels
-                          ? static_cast<int64_t*>(input_labels.data.data())
-                          : nullptr,
-                      FLAGS_batch_size,
-                      FLAGS_debug_display_images);
+    if (!reader->NextBatch(static_cast<float*>(input_data.data.data()),
+                           FLAGS_with_labels
+                               ? static_cast<int64_t*>(input_labels.data.data())
+                               : nullptr,
+                           FLAGS_batch_size,
+                           FLAGS_debug_display_images)) {
+      std::cout << "Batch size bigger than dataset size. Stopping.";
+      return;
+    }
   }
 
   // configure predictor
