@@ -282,6 +282,7 @@ void Main() {
   if (!FLAGS_skip_passes) {
     if (FLAGS_use_mkldnn) {
       // add passes to execute with MKL-DNN
+      config.ir_passes.push_back("depthwise_conv_mkldnn_pass");
       config.ir_passes.push_back("conv_bn_fuse_pass");
       config.ir_passes.push_back("conv_eltwiseadd_bn_fuse_pass");
       config.ir_passes.push_back("conv_bias_mkldnn_fuse_pass");
