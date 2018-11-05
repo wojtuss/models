@@ -66,17 +66,17 @@ def parse_args():
     parser.add_argument(
         '--infer_model_path',
         type=str,
-        default="/home/lidanqin/models/se_resnext_50/129",
+        default='',
         help='The directory for loading inference model.')
     parser.add_argument(
         '--test_file_list',
         type=str,
-        default='/home/kbinias/data/imagenet/val_list.txt',
+        default='data/ILSVRC2012/val_list.txt',
         help='A file with a list of test data files.')
     parser.add_argument(
         '--data_dir',
         type=str,
-        default='/home/kbinias/data/imagenet',
+        default='data/ILSVRC2012',
         help='A directory with test data files.')
     parser.add_argument(
         '--use_transpiler',
@@ -102,21 +102,40 @@ def user_data_reader(data):
 
 
 def infer(args):
+    if not os.path.exists(args.infer_model_path):
+        raise IOError("Invalid inference model path!")
 
-    dshape = [3, 224, 224]
+    if args.data_set == "cifar10":
+        class_dim = 10
+        if args.data_format == 'NCHW':
+            dshape = [3, 32, 32]
+        else:
+            dshape = [32, 32, 3]
+    elif args.data_set == "imagenet":
+        class_dim = 1000
+        if args.data_format == 'NCHW':
+            dshape = [3, 224, 224]
+        else:
+            dshape = [224, 224, 3]
+    else:
+        class_dim = 102
+        if args.data_format == 'NCHW':
+            dshape = [3, 224, 224]
+        else:
+            dshape = [224, 224, 3]
 
-    fake_data = [
-        (1e-5*np.arange(dshape[0] * dshape[1] * dshape[2]).astype(np.float32), i) for i in range(50)]
+    fake_data = [(np.random.rand(dshape[0] * dshape[1] * dshape[2]).astype(
+        np.float32), np.random.randint(1, class_dim)) for _ in range(1)]
 
     image = fluid.layers.data(name='data', shape=dshape, dtype='float32')
     label = fluid.layers.data(name='label', shape=[1], dtype='int64')
 
     place = fluid.CUDAPlace(0) if args.device == 'GPU' else fluid.CPUPlace()
-
     exe = fluid.Executor(place)
 
     # load model
-    [infer_program, feed_dict, fetch_targets] = fluid.io.load_inference_model(args.infer_model_path, exe)
+    [infer_program, feed_dict, fetch_targets] = fluid.io.load_inference_model(
+        args.infer_model_path, exe)
 
     # infer data read
     if args.use_fake_data:
@@ -130,8 +149,7 @@ def infer(args):
                 batch_size=args.batch_size)
         elif args.data_set == 'imagenet':
             infer_reader = paddle.batch(
-                # the train method allows for accuracy measurement
-                reader.train(
+                reader.test(
                     file_list=args.test_file_list,
                     data_dir=args.data_dir,
                     cycle=cycle),
@@ -143,12 +161,13 @@ def infer(args):
 
     if args.use_fake_data:
         data = infer_reader().next()
-        image = np.array(map(lambda x: x[0].reshape(dshape), data)).astype(
-            'float32')
+        image = np.array(map(lambda x: x[0].reshape(dshape),
+                             data)).astype('float32')
         label = np.array(map(lambda x: x[1], data)).astype('int64')
         label = label.reshape([-1, 1])
 
-    infer_accs = []
+    infer_accs1 = []
+    infer_accs5 = []
     iters = 0
     batch_times = []
     fpses = []
@@ -170,15 +189,19 @@ def infer(args):
             total_samples = 0
             infer_start_time = time.time()
         if not args.use_fake_data:
-            image = np.array(map(lambda x: x[0].reshape(dshape), data)).astype(
-                "float32")
+            image = np.array(map(lambda x: x[0].reshape(dshape),
+                                 data)).astype("float32")
             label = np.array(map(lambda x: x[1], data)).astype("int64")
             label = label.reshape([-1, 1])
 
         start = time.time()
-        loss, acc1, acc5 = exe.run(program,
-                                   feed={feed_dict[0]:image,feed_dict[1]:label},
-                                   fetch_list=fetch_targets)
+        loss, acc1, acc5 = exe.run(
+            program,
+            feed={
+                feed_dict[0]: image,
+                feed_dict[1]: label
+            },
+            fetch_list=fetch_targets)
 
         batch_time = time.time() - start
         loss = np.mean(loss)
@@ -189,7 +212,8 @@ def infer(args):
         fps = samples / batch_time
         batch_times.append(batch_time)
         fpses.append(fps)
-        infer_accs.append(acc1)
+        infer_accs1.append(acc1)
+        infer_accs5.append(acc5)
         iters += 1
         appx = ' (warm-up)' if iters <= args.skip_batch_num else ''
         print("Iteration: %d%s, accuracy: %f, latency: %.5f s, fps: %f" %
@@ -206,8 +230,10 @@ def infer(args):
     fps_pc01 = np.percentile(fpses, 1)
     infer_total_time = time.time() - infer_start_time
     examples_per_sec = total_samples / infer_total_time
-    infer_accs = infer_accs[args.skip_batch_num:]
-    acc_avg = np.mean(infer_accs)
+    infer_accs1 = infer_accs1[args.skip_batch_num:]
+    infer_accs5 = infer_accs5[args.skip_batch_num:]
+    acc1_avg = np.mean(infer_accs1)
+    acc5_avg = np.mean(infer_accs5)
 
     # Benchmark output
     print('\nAvg fps: %.5f, std fps: %.5f, fps for 99pc latency: %.5f' %
@@ -216,7 +242,8 @@ def infer(args):
           (latency_avg, latency_std, latency_pc99))
     print('Total examples: %d, total time: %.5f, total examples/sec: %.5f' %
           (total_samples, infer_total_time, examples_per_sec))
-    print("Avg accuracy: %f\n" % (acc_avg))
+    print("Avg top1 accuracy: %f" % (acc1_avg))
+    print("Avg top5 accuracy: %f\n" % (acc5_avg))
 
 
 if __name__ == '__main__':

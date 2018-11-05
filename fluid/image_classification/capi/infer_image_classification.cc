@@ -122,7 +122,8 @@ T FindStandardDev(std::vector<T> v) {
 }
 
 void PostprocessBenchmarkData(std::vector<double>& latencies,
-                              std::vector<float>& infer_accs,
+                              std::vector<float>& infer_accs1,
+                              std::vector<float>& infer_accs5,
                               std::vector<double>& fpses,
                               double total_time_sec,
                               int total_samples) {
@@ -151,10 +152,16 @@ void PostprocessBenchmarkData(std::vector<double>& latencies,
          total_time_sec,
          examples_per_sec);
 
-  if (infer_accs.size() > 0) {
-    SkipFirstNData(infer_accs, FLAGS_skip_batch_num);
-    float acc_avg = FindAverage(infer_accs);
-    printf("Avg accuracy: %f\n\n", acc_avg);
+  if (infer_accs1.size() > 0) {
+    SkipFirstNData(infer_accs1, FLAGS_skip_batch_num);
+    float acc1_avg = FindAverage(infer_accs1);
+    printf("Avg top1 accuracy: %f\n", acc1_avg);
+  }
+
+  if (infer_accs5.size() > 0) {
+    SkipFirstNData(infer_accs5, FLAGS_skip_batch_num);
+    float acc5_avg = FindAverage(infer_accs5);
+    printf("Avg top5 accuracy: %f\n", acc5_avg);
   }
 }
 
@@ -310,7 +317,8 @@ void Main() {
   // run prediction
   Timer timer;
   Timer timer_total;
-  std::vector<float> infer_accs;
+  std::vector<float> infer_accs1;
+  std::vector<float> infer_accs5;
   std::vector<double> batch_times;
   std::vector<double> fpses;
   for (int i = 0; i < FLAGS_iterations + FLAGS_skip_batch_num; i++) {
@@ -360,11 +368,15 @@ void Main() {
     fpses.push_back(fps);
     std::string appx = (i < FLAGS_skip_batch_num) ? " (warm-up)" : "";
     if (FLAGS_with_labels) {
-      CHECK_GE(output_slots.size(), 2UL);
+      CHECK_GE(output_slots.size(), 3UL);  // avg_cost, acc_top1, acc_top5
       CHECK_EQ(output_slots[1].lod.size(), 0UL);
+      CHECK_EQ(output_slots[2].lod.size(), 0UL);
       CHECK_EQ(output_slots[1].dtype, paddle::PaddleDType::FLOAT32);
+      CHECK_EQ(output_slots[2].dtype, paddle::PaddleDType::FLOAT32);
       float* acc1 = static_cast<float*>(output_slots[1].data.data());
-      infer_accs.push_back(*acc1);
+      float* acc5 = static_cast<float*>(output_slots[2].data.data());
+      infer_accs1.push_back(*acc1);
+      infer_accs5.push_back(*acc5);
       printf("Iteration: %d%s, accuracy: %f, latency: %.5f s, fps: %f\n",
              i + 1,
              appx.c_str(),
@@ -389,7 +401,7 @@ void Main() {
   double total_samples = FLAGS_iterations * FLAGS_batch_size;
   double total_time = timer_total.toc() / 1000;
   PostprocessBenchmarkData(
-      batch_times, infer_accs, fpses, total_time, total_samples);
+      batch_times, infer_accs1, infer_accs5, fpses, total_time, total_samples);
 }
 
 }  // namespace paddle
