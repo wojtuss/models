@@ -21,20 +21,29 @@ namespace paddle {
 
 // Data reader for imagenet for ResNet50
 struct DataReader {
-  static void drawImages(float* input, bool is_rgb, int batch_size,
-                         int channels, int width, int height);
+  static void drawImages(float* input,
+                         bool is_rgb,
+                         int batch_size,
+                         int channels,
+                         int width,
+                         int height);
 
   explicit DataReader(const std::string& data_list_path,
-                      const std::string& data_dir_path, int width, int height,
-                      int channels, bool convert_to_rgb);
+                      const std::string& data_dir_path,
+                      int width,
+                      int height,
+                      int channels,
+                      bool convert_to_rgb);
 
   // return true if separator works or false otherwise
   bool SetSeparator(char separator);
 
-  bool NextBatch(float* input, int64_t* label, int batch_size,
+  bool NextBatch(float* input,
+                 int64_t* label,
+                 int batch_size,
                  bool debug_display_images);
 
- private:
+private:
   std::string data_list_path;
   std::string data_dir_path;
   std::ifstream file;

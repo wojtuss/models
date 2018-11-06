@@ -178,7 +178,8 @@ bool DataReader::NextBatch(float* input,
       cv::imshow(std::to_string(i) + " input image", image);
 
     cv::Mat image_resized = resize_short(image, resize_size);
-    cv::Mat image_cropped = center_crop_image(image_resized, crop_size, crop_size);
+    cv::Mat image_cropped =
+        center_crop_image(image_resized, crop_size, crop_size);
 
     cv::Mat fimage;
     image_cropped.convertTo(fimage, CV_32FC3);

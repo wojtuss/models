@@ -96,5 +96,5 @@ message(STATUS "OpenCV found (${OpenCV_CONFIG_PATH})")
 ##############################################################################
 
 set(TARGET_NAME infer_image_classification)
-add_executable(${TARGET_NAME} infer_image_classification.cc data_reader.cc)
+add_executable(${TARGET_NAME} infer_image_classification.cc data_reader.cc stats.cc)
 target_link_libraries(${TARGET_NAME} ${OpenCV_LIBS} gflags glog ${mkldnn_lib_path}/libmkldnn.so.0)
