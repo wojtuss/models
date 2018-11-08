@@ -313,7 +313,8 @@ int main(int argc, char** argv) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
   try {
     paddle::Main();
-  } catch (const std::exception&) {
+  } catch (const std::exception& e) {
+    std::cerr << "Error: " << e.what() << std::endl;
     return EXIT_FAILURE;
   }
   return 0;
