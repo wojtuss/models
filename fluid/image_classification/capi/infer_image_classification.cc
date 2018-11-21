@@ -213,6 +213,7 @@ void PrepareConfig(contrib::AnalysisConfig& config) {
     config.pass_builder()->AppendPass("conv_elementwise_add_mkldnn_fuse_pass");
     config.pass_builder()->AppendPass("conv_relu_mkldnn_fuse_pass");
     config.pass_builder()->AppendPass("fc_fuse_pass");
+    config.pass_builder()->AppendPass("is_test_pass");
   } else {
     // add passes to execute keeping the order - without MKL-DNN
     config.pass_builder()->AppendPass("conv_bn_fuse_pass");
