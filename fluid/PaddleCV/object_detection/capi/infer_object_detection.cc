@@ -303,6 +303,8 @@ void Main() {
     throw std::invalid_argument(
         "The inference model directory does not exist.");
   }
+  if (FLAGS_with_labels && FLAGS_use_fake_data)
+    throw std::invalid_argument("Cannot use fake data for accuracy measuring.");
 
   paddle::PaddleTensor input_data = DefineInputData();
   paddle::PaddleTensor gt_label_tensor;
