@@ -17,7 +17,7 @@ git clone https://github.com/PaddlePaddle/Paddle.git
 cd Paddle
 mkdir build
 cd build
-cmake .. -DWITH_DOC=OFF -DWITH_GPU=OFF -DWITH_DISTRIBUTE=OFF -DWITH_MKLDNN=ON -DWITH_GOLANG=OFF -DWITH_TESTING=OFF -DCMAKE_BUILD_TYPE=Release -DWITH_PROFILER=ON -DWITH_FLUID_ONLY=ON
+cmake .. -DWITH_DOC=OFF -DWITH_GPU=OFF -DWITH_DISTRIBUTE=OFF -DWITH_MKLDNN=ON -DWITH_GOLANG=OFF -DWITH_TESTING=OFF -DCMAKE_BUILD_TYPE=Release -DWITH_PROFILER=ON -DWITH_FLUID_ONLY=ON -DON_INFER=ON
 make -j <num_cpu_cores>
 ```
 ## 2. Build paddle's target `inference_lib_dist`
