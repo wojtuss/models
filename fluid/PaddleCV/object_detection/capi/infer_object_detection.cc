@@ -82,7 +82,7 @@ void PrintInfo() {
             << "File with list of object names: " << FLAGS_label_list
             << std::endl
             << "Batch size: " << FLAGS_batch_size << std::endl
-            << "Padlle num threads: " << FLAGS_paddle_num_threads << std::endl
+            << "Paddle num threads: " << FLAGS_paddle_num_threads << std::endl
             << "Iterations: " << FLAGS_iterations << std::endl
             << "Number of batches to skip: " << FLAGS_skip_batch_num
             << std::endl
@@ -259,6 +259,7 @@ void PrepareConfig(contrib::AnalysisConfig& config) {
   config.device = 0;
   config.enable_ir_optim = !FLAGS_skip_passes;
   config.specify_input_name = false;
+  config.SetCpuMathLibraryNumThreads(FLAGS_paddle_num_threads);
   if (FLAGS_use_mkldnn) config.EnableMKLDNN();
 
   // remove all passes so that we can add them in correct order
