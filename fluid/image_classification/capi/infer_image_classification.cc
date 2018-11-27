@@ -18,7 +18,6 @@
 #include "data_reader.h"
 #include "paddle/fluid/framework/ir/pass.h"
 #include "paddle/fluid/inference/paddle_inference_api.h"
-#include "paddle/fluid/inference/paddle_inference_pass.h"
 #include "paddle/fluid/platform/profiler.h"
 #include "stats.h"
 
@@ -227,14 +226,22 @@ void PrepareConfig(contrib::AnalysisConfig& config) {
 void Main() {
   PrintInfo();
 
-  CHECK_GT(FLAGS_batch_size, 0);
-  CHECK_GT(FLAGS_iterations, 0);
-  CHECK_GE(FLAGS_skip_batch_num, 0);
+
+  if (FLAGS_batch_size <= 0)
+    throw std::invalid_argument(
+        "The batch_size option is less than or equal to 0.");
+  if (FLAGS_iterations <= 0)
+    throw std::invalid_argument(
+        "The iterations option is less than or equal to 0.");
+  if (FLAGS_skip_batch_num < 0)
+    throw std::invalid_argument("The skip_batch_num option is less than 0.");
   struct stat sb;
   if (stat(FLAGS_infer_model.c_str(), &sb) != 0 || !S_ISDIR(sb.st_mode)) {
     throw std::invalid_argument(
         "The inference model directory does not exist.");
   }
+  if (FLAGS_with_labels && FLAGS_use_fake_data)
+    throw std::invalid_argument("Cannot use fake data for accuracy measuring.");
 
   paddle::PaddleTensor input_data = DefineInputData();
   paddle::PaddleTensor input_labels = DefineInputLabels();
@@ -308,7 +315,8 @@ void Main() {
 
     // run inference
     timer.tic();
-    CHECK(predictor->Run(input, &output_slots));
+    if (!predictor->Run(input, &output_slots))
+      throw std::runtime_error("Prediction failed.");
     double batch_time = timer.toc() / 1000;
 
     // gather statistics from the iteration
