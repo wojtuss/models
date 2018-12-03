@@ -17,12 +17,14 @@ add_arg = functools.partial(add_arguments, argparser=parser)
 add_arg('model',    str,   "crnn_ctc",           "Which type of network to be used. 'crnn_ctc' or 'attention'")
 add_arg('model_path',         str,  None,   "The model path to be used for inference.")
 add_arg('input_images_dir',   str,  None,   "The directory of images.")
+add_arg('save_model_dir', str, None, "save_model_dir")
+
 add_arg('input_images_list',  str,  None,   "The list file of images.")
 add_arg('dict',               str,  None,   "The dictionary. The result of inference will be index sequence if the dictionary was None.")
 add_arg('use_gpu',            bool,  True,      "Whether use GPU to infer.")
-add_arg('iterations',         int,  0,      "The number of iterations. Zero or less means whole test set. More than 0 means the test set might be looped until # of iterations is reached.")
+add_arg('iterations',         int,  5,      "The number of iterations. Zero or less means whole test set. More than 0 means the test set might be looped until # of iterations is reached.")
 add_arg('profile',            bool, False,  "Whether to use profiling.")
-add_arg('skip_batch_num',     int,  0,      "The number of first minibatches to skip as warm-up for better performance test.")
+add_arg('skip_batch_num',     int,  1,      "The number of first minibatches to skip as warm-up for better performance test.")
 add_arg('batch_size',         int,  1,      "The minibatch size.")
 # yapf: enable
 
@@ -91,7 +93,12 @@ def inference(args):
                          feed=feed_dict,
                          fetch_list=[ids],
                          return_numpy=False)
+        fluid.io.save_inference_model(args.save_model_dir,["pixel"],[ids],exe,fluid.default_main_program())
         indexes = prune(np.array(result[0]).flatten(), 0, 1)
+        print("Save model !!!")
+
+        #fluid.io.save_inference_model(args.save_model_dir,["pixel"],indexes.all(),exe,fluid.default_main_program())
+
         batch_time = time.time() - start
         fps = args.batch_size / batch_time
         batch_times.append(batch_time)

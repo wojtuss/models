@@ -121,7 +121,7 @@ def train(args):
                 time.time(), iter_num, str(test_seq_error[0])))
             print(test_seq_error)
 
-            fluid.io.save_inference_model(args.save_model_dir,["image","label"],test_seq_error,exe,main_program=inference_program)
+            fluid.io.save_inference_model(args.save_model_dir,["pixel"],[ctc_out],main_program=inference_program)
             print("Model saved!")
             #Note: The following logs are special for CE monitoring.
             #Other situations do not need to care about these logs.
