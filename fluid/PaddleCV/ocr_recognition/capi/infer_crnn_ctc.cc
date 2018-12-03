@@ -16,10 +16,7 @@
 #include <fstream>
 #include <opencv2/opencv.hpp>
 
-//#include "paddle/fluid/inference/analysis/analyzer.h"
-//#include "paddle/fluid/inference/api/helper.h"
 #include "paddle/fluid/inference/paddle_inference_api.h"
-//#include "paddle/fluid/inference/paddle_inference_pass.h"
 #include "paddle/fluid/platform/profiler.h"
 
 #include <boost/optional.hpp>
@@ -35,13 +32,32 @@ DEFINE_string(infer_model, "", "Saved inference model.");
 DEFINE_int64(batch_size, 1, "Batch size.");
 DEFINE_bool(print_results, false, "Print inference results.");
 DEFINE_int64(skip_batches, 0, "Number of warm-up iterations.");
-DECLARE_bool(profile);
+DEFINE_bool(profile,false,"Turn on proflier for fluid");
 
 // Default values for a Baidu dataset that we're using
 DEFINE_int64(image_height, 48, "Height of an image.");
 DEFINE_int64(image_width, 384, "Width of an image.");
 
 namespace {
+class Timer {
+public:
+  std::chrono::high_resolution_clock::time_point start;
+  std::chrono::high_resolution_clock::time_point startu;
+
+  void tic() { start = std::chrono::high_resolution_clock::now(); }
+  double toc() {
+    startu = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> time_span =
+        std::chrono::duration_cast<std::chrono::duration<double>>(startu -
+                                                                  start);
+    double used_time_ms = static_cast<double>(time_span.count()) * 1000.0;
+    return used_time_ms;
+  }
+};
+}  // namespace
+
+namespace paddle{
+
 struct GrayscaleImageReader {
   static constexpr int64_t channels = 1;
 
@@ -150,9 +166,10 @@ struct DatafileParser {
       else
         break;
     }
-
     return std::make_tuple(height, width, filename, indices);
-  }
+  };
+
+
 
   boost::optional<parse_results> Line() {
     std::int64_t height;
@@ -309,9 +326,9 @@ struct DataReader {
     return std::make_tuple(batch_size, channels, image_height, image_width,
                            indices, data_chunk);
   }
-}
+};
 
-PaddleTensor PrepareData(const DataReader::DataChunk& data_chunk) {
+paddle::PaddleTensor PrepareData(const DataReader::DataChunk& data_chunk) {
   paddle::PaddleTensor input;
   input.name = "image";
 
@@ -332,7 +349,7 @@ PaddleTensor PrepareData(const DataReader::DataChunk& data_chunk) {
   return input;
 }
 
-void PrintResults(const std::vector<PaddleTensor>& output) {
+void PrintResults(const std::vector<paddle::PaddleTensor>& output) {
   auto lod = output[0].lod[0];
 
   int64_t* output_data = static_cast<int64_t*>(output[0].data.data());
@@ -368,13 +385,13 @@ void Main() {
   auto predictor = CreatePaddlePredictor<contrib::AnalysisConfig,
                                          PaddleEngineKind::kAnalysis>(config);
 
-  inference::Timer timer;
-  inference::Timer total_timer;
+  Timer timer;
+  Timer total_timer;
 
   std::vector<double> fpses;
 
   auto run_experiment =
-      [&predictor](const PaddleTensor& input) -> std::vector<PaddleTensor> {
+      [&predictor](const paddle::PaddleTensor& input) -> std::vector<paddle::PaddleTensor> {
     std::vector<paddle::PaddleTensor> output_slots;
     predictor->Run({input}, &output_slots);
 
@@ -382,7 +399,7 @@ void Main() {
   };
 
   std::cout << "Warm-up: " << FLAGS_skip_batches << " iterations.\n";
-  for (size_t i = 0; i < FLAGS_skip_batches; ++i) {
+  for (int i = 0; i < FLAGS_skip_batches; ++i) {
     auto data_chunk = data_reader.Batch();
 
     run_experiment(PrepareData(*data_chunk));
@@ -440,5 +457,10 @@ int main(int argc, char** argv) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
   try {
     paddle::Main();
- }
+  }catch(const std::exception& e){
+    std::cerr << "Error: " << e.what() << std::endl;
+    return EXIT_FAILURE;
+  }
+  return 0;
 }
+
