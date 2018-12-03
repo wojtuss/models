@@ -8,7 +8,7 @@ cd build
   --data_list=/home/li/.cache/paddle/dataset/ctc_data/data/test.list \
   --image_dir=/home/li/.cache/paddle/dataset/ctc_data/data/test_images\
   --iterations=10  \
-	--infer_model=/home/li/AIPG-models/paddle-models/fluid/PaddleCV/ocr_recognition/models/model_00001 \
+	--infer_model=/home/li/AIPG-models/paddle-models/fluid/PaddleCV/ocr_recognition/saved_models_no_acc \
   --batch_size=1 \
   --skip_batches=0 \
 	--profile=true\
