@@ -1,5 +1,5 @@
 ## Dataset
-run python train.py without any arguments, dataset will be downloaded automatically to /home/username/.Cached/  
+run python train.py without any arguments, dataset will be downloaded automatically to /home/username/.cache/, for example /home/li/.cache/paddle/dataset/ctc\_data  
 
 ## python profile
 run infer.sh   
