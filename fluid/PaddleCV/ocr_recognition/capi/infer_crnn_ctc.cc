@@ -21,19 +21,19 @@
 
 #include <boost/optional.hpp>
 
-DEFINE_bool(mkldnn_used, false, "Use MKLDNN.");
+DEFINE_bool(use_mkldnn, false, "Use MKLDNN.");
 DEFINE_string(data_list,
               "",
               "Path to a file with a list of images. Format of a line: h w "
               "filename,comma-separated indices.");
-DEFINE_string(image_dir,
+DEFINE_string(data_dir,
               "",
               "Directory with images given in a data_list argument.");
 DEFINE_int64(iterations, 0, "Number of iterations.");
 DEFINE_string(infer_model, "", "Saved inference model.");
 DEFINE_int64(batch_size, 1, "Batch size.");
 DEFINE_bool(print_results, false, "Print inference results.");
-DEFINE_int64(skip_batches, 0, "Number of warm-up iterations.");
+DEFINE_int64(skip_batch_num, 0, "Number of warm-up iterations.");
 DEFINE_bool(profile, false, "Turn on proflier for fluid");
 
 // Default values for a Baidu dataset that we're using
@@ -66,6 +66,34 @@ public:
 }  // namespace
 
 namespace paddle {
+
+void PrintInfo() {
+  std::cout << std::endl
+            << "--- Used Parameters: -----------------" << std::endl
+            << "Inference model: " << FLAGS_infer_model << std::endl
+            << "File with list of images: " << FLAGS_data_list << std::endl
+            << "Directory with images: " << FLAGS_data_dir << std::endl
+            //<< "File with list of object names: " << FLAGS_label_list
+            //<< std::endl
+            << "Batch size: " << FLAGS_batch_size << std::endl
+            << "Paddle num threads: " << FLAGS_paddle_num_threads << std::endl
+            << "Iterations: " << FLAGS_iterations << std::endl
+            << "Number of batches to skip: " << FLAGS_skip_batch_num
+            //<< std::endl
+            << "Use fake data: " << FLAGS_use_fake_data << std::endl
+            << "Use MKL-DNN: " << FLAGS_use_mkldnn << std::endl
+            << "Skip passes: " << FLAGS_skip_passes << std::endl
+            << "Debug display image: " << FLAGS_debug_display_images
+            //<< std::endl
+            << "Profile: " << FLAGS_profile << std::endl
+            //<< "With labels: " << FLAGS_with_labels << std::endl
+            //<< "One file params: " << FLAGS_one_file_params << std::endl
+            //<< "Channels: " << FLAGS_channels << std::endl
+            //<< "Resize size: " << FLAGS_resize_size << std::endl
+            << "Enable graphviz: " << FLAGS_enable_graphviz << std::endl
+            << "--------------------------------------" << std::endl;
+}
+
 
 struct GrayscaleImageReader {
   static constexpr int64_t channels = 1;
@@ -104,9 +132,9 @@ struct GrayscaleImageReader {
 
 struct DatafileParser {
   explicit DatafileParser(bool is_circular,
-                          std::string image_dir,
+                          std::string data_dir,
                           std::string data_list_file)
-      : is_circular{is_circular}, image_dir{image_dir} {
+      : is_circular{is_circular}, data_dir{data_dir} {
     if (data_list_file.empty()) {
       throw std::invalid_argument("Name of the data list file empty.");
     }
@@ -202,7 +230,7 @@ struct DatafileParser {
         std::tie(height, width, filename, indices) = parse_single_line(line);
 
         return std::make_tuple(
-            height, width, image_dir + "/" + filename, indices);
+            height, width, data_dir + "/" + filename, indices);
       } else {
         if (is_circular) {
           data_list_stream.clear();
@@ -217,7 +245,7 @@ struct DatafileParser {
 
 private:
   bool is_circular;
-  std::string image_dir;
+  std::string data_dir;
   std::ifstream data_list_stream;
 };
 
@@ -239,12 +267,12 @@ struct Iterations {
 
 struct DataReader {
   explicit DataReader(int64_t iterations,
-                      std::string image_dir,
+                      std::string data_dir,
                       std::string data_list_file,
                       int64_t batch_size,
                       int64_t image_height,
                       int64_t image_width)
-      : datafile_parser{iterations != 0, image_dir, data_list_file},
+      : datafile_parser{iterations != 0, data_dir, data_list_file},
         elapsed_iters{iterations},
         batch_size{batch_size},
         image_height{image_height},
@@ -400,8 +428,8 @@ void PrintResults(const std::vector<paddle::PaddleTensor>& output) {
 }
 
 void Main() {
-  DataReader data_reader{FLAGS_skip_batches + FLAGS_iterations,
-                         FLAGS_image_dir,
+  DataReader data_reader{FLAGS_skip_batch_num + FLAGS_iterations,
+                         FLAGS_data_dir,
                          FLAGS_data_list,
                          FLAGS_batch_size,
                          FLAGS_image_height,
@@ -413,15 +441,15 @@ void Main() {
   config.enable_ir_optim = true;
   config.SetCpuMathLibraryNumThreads(FLAGS_paddle_num_threads);
 
-  if (FLAGS_mkldnn_used) config.EnableMKLDNN();
+  if (FLAGS_use_mkldnn) config.EnableMKLDNN();
 
   // remove all passes so that we can add them in correct order
   for (int i = config.pass_builder()->AllPasses().size() - 1; i >= 0; i--)
     config.pass_builder()->DeletePass(i);
 
   config.pass_builder()->AppendPass("infer_clean_graph_pass");
-  // add mkldnn enabling passes
-  if (FLAGS_mkldnn_used) {
+  if (FLAGS_use_mkldnn) {
+    // add passes to execute with MKL-DNN
     config.pass_builder()->AppendPass("mkldnn_placement_pass");
     config.pass_builder()->AppendPass("is_test_pass");
     config.pass_builder()->AppendPass("depthwise_conv_mkldnn_pass");
@@ -464,8 +492,8 @@ void Main() {
     return output_slots;
   };
 
-  std::cout << "Warm-up: " << FLAGS_skip_batches << " iterations.\n";
-  for (int i = 0; i < FLAGS_skip_batches; ++i) {
+  std::cout << "Warm-up: " << FLAGS_skip_batch_num << " iterations.\n";
+  for (int i = 0; i < FLAGS_skip_batch_num; ++i) {
     auto data_chunk = data_reader.Batch();
 
     run_experiment(PrepareData(*data_chunk));
