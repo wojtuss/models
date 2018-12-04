@@ -22,21 +22,30 @@
 #include <boost/optional.hpp>
 
 DEFINE_bool(mkldnn_used, false, "Use MKLDNN.");
-DEFINE_string(data_list, "",
+DEFINE_string(data_list,
+              "",
               "Path to a file with a list of images. Format of a line: h w "
               "filename,comma-separated indices.");
-DEFINE_string(image_dir, "",
+DEFINE_string(image_dir,
+              "",
               "Directory with images given in a data_list argument.");
 DEFINE_int64(iterations, 0, "Number of iterations.");
 DEFINE_string(infer_model, "", "Saved inference model.");
 DEFINE_int64(batch_size, 1, "Batch size.");
 DEFINE_bool(print_results, false, "Print inference results.");
 DEFINE_int64(skip_batches, 0, "Number of warm-up iterations.");
-DEFINE_bool(profile,false,"Turn on proflier for fluid");
+DEFINE_bool(profile, false, "Turn on proflier for fluid");
 
 // Default values for a Baidu dataset that we're using
 DEFINE_int64(image_height, 48, "Height of an image.");
 DEFINE_int64(image_width, 384, "Width of an image.");
+DEFINE_bool(skip_passes, false, "Skip running passes.");
+DEFINE_bool(enable_graphviz,
+            false,
+            "Enable graphviz to get .dot files with data flow graphs.");
+DEFINE_int32(paddle_num_threads,
+             1,
+             "Number of threads for each paddle instance.");
 
 namespace {
 class Timer {
@@ -56,13 +65,15 @@ public:
 };
 }  // namespace
 
-namespace paddle{
+namespace paddle {
 
 struct GrayscaleImageReader {
   static constexpr int64_t channels = 1;
 
-  std::shared_ptr<float> operator()(int64_t image_height, int64_t image_width,
-                                    int64_t height, int64_t width,
+  std::shared_ptr<float> operator()(int64_t image_height,
+                                    int64_t image_width,
+                                    int64_t height,
+                                    int64_t width,
                                     const std::string& filename) {
     cv::Mat image = cv::imread(filename, cv::IMREAD_GRAYSCALE);
 
@@ -92,7 +103,8 @@ struct GrayscaleImageReader {
 };
 
 struct DatafileParser {
-  explicit DatafileParser(bool is_circular, std::string image_dir,
+  explicit DatafileParser(bool is_circular,
+                          std::string image_dir,
                           std::string data_list_file)
       : is_circular{is_circular}, image_dir{image_dir} {
     if (data_list_file.empty()) {
@@ -126,29 +138,33 @@ struct DatafileParser {
     auto it = std::begin(line);
 
     auto width_pair = retrieve_token<int64_t>(
-        it, std::end(line), ' ',
-        [](std::string s) -> int64_t { return std::stoll(s); });
+        it, std::end(line), ' ', [](std::string s) -> int64_t {
+          return std::stoll(s);
+        });
     auto width = width_pair.first;
     it = width_pair.second;
     it++;
 
     auto height_pair = retrieve_token<int64_t>(
-        it, std::end(line), ' ',
-        [](std::string s) -> int64_t { return std::stoll(s); });
+        it, std::end(line), ' ', [](std::string s) -> int64_t {
+          return std::stoll(s);
+        });
     auto height = height_pair.first;
     it = height_pair.second;
     it++;
 
     auto filename_pair = retrieve_token<std::string>(
-        it, std::end(line), ' ',
-        [](std::string s) -> std::string { return s; });
+        it, std::end(line), ' ', [](std::string s) -> std::string {
+          return s;
+        });
     auto filename = filename_pair.first;
     it = filename_pair.second;
     it++;
 
     auto indices_pair = retrieve_token<std::string>(
-        it, std::end(line), ' ',
-        [](std::string s) -> std::string { return s; });
+        it, std::end(line), ' ', [](std::string s) -> std::string {
+          return s;
+        });
     auto indices_str = indices_pair.first;
 
     std::vector<int64_t> indices;
@@ -156,8 +172,9 @@ struct DatafileParser {
 
     while (true) {
       auto p = retrieve_token<int64_t>(
-          it, std::end(indices_str), ',',
-          [](std::string s) -> int64_t { return std::stoll(s); });
+          it, std::end(indices_str), ',', [](std::string s) -> int64_t {
+            return std::stoll(s);
+          });
       indices.push_back(p.first);
       it = p.second;
 
@@ -168,7 +185,6 @@ struct DatafileParser {
     }
     return std::make_tuple(height, width, filename, indices);
   };
-
 
 
   boost::optional<parse_results> Line() {
@@ -185,8 +201,8 @@ struct DatafileParser {
       if (data_list_stream.good()) {
         std::tie(height, width, filename, indices) = parse_single_line(line);
 
-        return std::make_tuple(height, width, image_dir + "/" + filename,
-                               indices);
+        return std::make_tuple(
+            height, width, image_dir + "/" + filename, indices);
       } else {
         if (is_circular) {
           data_list_stream.clear();
@@ -199,7 +215,7 @@ struct DatafileParser {
     return boost::none;
   }
 
- private:
+private:
   bool is_circular;
   std::string image_dir;
   std::ifstream data_list_stream;
@@ -208,6 +224,33 @@ struct DatafileParser {
 struct Once {
   bool operator()() { return true; }
 };
+
+// void PrintInfo() {
+//   std::cout << std::endl
+//             << "--- Used Parameters: -----------------" << std::endl
+//             << "Inference model: " << FLAGS_infer_model << std::endl
+//             << "File with list of images: " << FLAGS_data_list << std::endl
+//             << "Directory with images: " << FLAGS_data_dir << std::endl
+//             << "File with list of object names: " << FLAGS_label_list
+//             << std::endl
+//             << "Batch size: " << FLAGS_batch_size << std::endl
+//             << "Paddle num threads: " << FLAGS_paddle_num_threads << std::endl
+//             << "Iterations: " << FLAGS_iterations << std::endl
+//             << "Number of batches to skip: " << FLAGS_skip_batch_num
+//             << std::endl
+//             << "Use fake data: " << FLAGS_use_fake_data << std::endl
+//             << "Use MKL-DNN: " << FLAGS_use_mkldnn << std::endl
+//             << "Skip passes: " << FLAGS_skip_passes << std::endl
+//             << "Debug display image: " << FLAGS_debug_display_images
+//             << std::endl
+//             << "Profile: " << FLAGS_profile << std::endl
+//             << "With labels: " << FLAGS_with_labels << std::endl
+//             << "One file params: " << FLAGS_one_file_params << std::endl
+//             << "Channels: " << FLAGS_channels << std::endl
+//             << "Resize size: " << FLAGS_resize_size << std::endl
+//             << "Enable graphviz: " << FLAGS_enable_graphviz << std::endl
+//             << "--------------------------------------" << std::endl;
+// }
 
 struct Iterations {
   explicit Iterations(int64_t iterations) : elapsed_iters{iterations} {}
@@ -222,9 +265,12 @@ struct Iterations {
 };
 
 struct DataReader {
-  explicit DataReader(int64_t iterations, std::string image_dir,
-                      std::string data_list_file, int64_t batch_size,
-                      int64_t image_height, int64_t image_width)
+  explicit DataReader(int64_t iterations,
+                      std::string image_dir,
+                      std::string data_list_file,
+                      int64_t batch_size,
+                      int64_t image_height,
+                      int64_t image_width)
       : datafile_parser{iterations != 0, image_dir, data_list_file},
         elapsed_iters{iterations},
         batch_size{batch_size},
@@ -240,14 +286,20 @@ struct DataReader {
     mode_func = check_mode();
   }
 
-  using DataRecord = std::tuple<int64_t, int64_t, int64_t, std::vector<int64_t>,
+  using DataRecord = std::tuple<int64_t,
+                                int64_t,
+                                int64_t,
+                                std::vector<int64_t>,
                                 std::shared_ptr<float>>;
 
-  using DataChunk =
-      std::tuple<int64_t, int64_t, int64_t, int64_t,
-                 std::vector<std::vector<int64_t>>, std::shared_ptr<float>>;
+  using DataChunk = std::tuple<int64_t,
+                               int64_t,
+                               int64_t,
+                               int64_t,
+                               std::vector<std::vector<int64_t>>,
+                               std::shared_ptr<float>>;
 
- private:
+private:
   DatafileParser datafile_parser;
   GrayscaleImageReader image_reader;
 
@@ -258,7 +310,7 @@ struct DataReader {
   int64_t image_width;
   std::function<bool()> mode_func;
 
- public:
+public:
   boost::optional<DataRecord> get_data_record() {
     std::int64_t height;
     std::int64_t width;
@@ -273,14 +325,14 @@ struct DataReader {
       auto image =
           image_reader(image_height, image_width, height, width, filename);
 
-      return std::make_tuple(channels, image_height, image_width, indices,
-                             image);
+      return std::make_tuple(
+          channels, image_height, image_width, indices, image);
     }
 
     return boost::none;
   }
 
- public:
+public:
   std::vector<DataRecord> Next() {
     std::vector<DataRecord> data_records;
 
@@ -308,7 +360,8 @@ struct DataReader {
     std::shared_ptr<float> data_chunk{new float[batch_size * image_size],
                                       std::default_delete<float[]>()};
 
-    std::accumulate(std::begin(data_records), std::end(data_records),
+    std::accumulate(std::begin(data_records),
+                    std::end(data_records),
                     data_chunk.get(),
                     [image_size](float* ptr, const DataRecord& dr) {
                       auto img = std::get<4>(dr).get();
@@ -317,14 +370,15 @@ struct DataReader {
                     });
 
     std::vector<std::vector<int64_t>> indices;
-    std::transform(std::begin(data_records), std::end(data_records),
+    std::transform(std::begin(data_records),
+                   std::end(data_records),
                    std::back_inserter(indices),
                    [](const DataRecord& dr) -> std::vector<int64_t> {
                      return std::get<3>(dr);
                    });
 
-    return std::make_tuple(batch_size, channels, image_height, image_width,
-                           indices, data_chunk);
+    return std::make_tuple(
+        batch_size, channels, image_height, image_width, indices, data_chunk);
   }
 };
 
@@ -339,8 +393,10 @@ paddle::PaddleTensor PrepareData(const DataReader::DataChunk& data_chunk) {
   auto indices = std::get<4>(data_chunk);
   auto image = std::get<5>(data_chunk);
 
-  input.shape = {static_cast<int>(batch_size), static_cast<int>(channels),
-                 static_cast<int>(height), static_cast<int>(width)};
+  input.shape = {static_cast<int>(batch_size),
+                 static_cast<int>(channels),
+                 static_cast<int>(height),
+                 static_cast<int>(width)};
 
   input.dtype = PaddleDType::FLOAT32;
   input.data.Reset(image.get(),
@@ -356,7 +412,10 @@ void PrintResults(const std::vector<paddle::PaddleTensor>& output) {
   std::ostream_iterator<std::string> ot{std::cout};
 
   auto it = std::begin(lod);
-  std::transform(it + 1, std::end(lod), it, ot,
+  std::transform(it + 1,
+                 std::end(lod),
+                 it,
+                 ot,
                  [output_data](int64_t f, int64_t e) -> std::string {
                    std::ostringstream ss;
                    std::ostream_iterator<int64_t> is{ss, ","};
@@ -378,9 +437,36 @@ void Main() {
   contrib::AnalysisConfig config;
   config.model_dir = FLAGS_infer_model;
   config.use_gpu = false;
-  config.enable_ir_optim = false;
+  config.enable_ir_optim = !FLAGS_skip_passes;
+  config.SetCpuMathLibraryNumThreads(FLAGS_paddle_num_threads);
 
   if (FLAGS_mkldnn_used) config.EnableMKLDNN();
+
+  // remove all passes so that we can add them in correct order
+  for (int i = config.pass_builder()->AllPasses().size() - 1; i >= 0; i--)
+    config.pass_builder()->DeletePass(i);
+
+  // add passes
+  config.pass_builder()->AppendPass("infer_clean_graph_pass");
+  if (FLAGS_mkldnn_used) {
+    // add passes to execute with MKL-DNN
+    config.pass_builder()->AppendPass("mkldnn_placement_pass");
+    config.pass_builder()->AppendPass("is_test_pass");
+    config.pass_builder()->AppendPass("depthwise_conv_mkldnn_pass");
+    config.pass_builder()->AppendPass("conv_bn_fuse_pass");
+    config.pass_builder()->AppendPass("conv_eltwiseadd_bn_fuse_pass");
+    config.pass_builder()->AppendPass("conv_bias_mkldnn_fuse_pass");
+    config.pass_builder()->AppendPass("conv_elementwise_add_mkldnn_fuse_pass");
+    config.pass_builder()->AppendPass("conv_relu_mkldnn_fuse_pass");
+    config.pass_builder()->AppendPass("fc_fuse_pass");
+  } else {
+    // add passes to execute keeping the order - without MKL-DNN
+    config.pass_builder()->AppendPass("conv_bn_fuse_pass");
+    config.pass_builder()->AppendPass("fc_fuse_pass");
+  }
+
+  // enable plotting .dot files
+  if (FLAGS_enable_graphviz) config.pass_builder()->TurnOnDebug();
 
   auto predictor = CreatePaddlePredictor<contrib::AnalysisConfig,
                                          PaddleEngineKind::kAnalysis>(config);
@@ -390,8 +476,8 @@ void Main() {
 
   std::vector<double> fpses;
 
-  auto run_experiment =
-      [&predictor](const paddle::PaddleTensor& input) -> std::vector<paddle::PaddleTensor> {
+  auto run_experiment = [&predictor](
+      const paddle::PaddleTensor& input) -> std::vector<paddle::PaddleTensor> {
     std::vector<paddle::PaddleTensor> output_slots;
     predictor->Run({input}, &output_slots);
 
@@ -457,10 +543,9 @@ int main(int argc, char** argv) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
   try {
     paddle::Main();
-  }catch(const std::exception& e){
+  } catch (const std::exception& e) {
     std::cerr << "Error: " << e.what() << std::endl;
     return EXIT_FAILURE;
   }
   return 0;
 }
-
