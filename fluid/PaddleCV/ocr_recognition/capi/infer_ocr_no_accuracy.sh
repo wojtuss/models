@@ -4,6 +4,7 @@ export KMP_AFFINITY=granularity=fine,compact,1,0
 export KMP_BLOCKTIME=1
 cd build
 ./infer_ocr_detection \
+  --skip_passes=true \
   --paddle_num_threads=14 \
   --use_mkldnn=true \
   --data_list=/home/li/.cache/paddle/dataset/ctc_data/data/test.list \

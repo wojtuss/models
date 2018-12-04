@@ -80,10 +80,10 @@ void PrintInfo() {
             << "Iterations: " << FLAGS_iterations << std::endl
             << "Number of batches to skip: " << FLAGS_skip_batch_num
             //<< std::endl
-            << "Use fake data: " << FLAGS_use_fake_data << std::endl
+            //<< "Use fake data: " << FLAGS_use_fake_data << std::endl
             << "Use MKL-DNN: " << FLAGS_use_mkldnn << std::endl
             << "Skip passes: " << FLAGS_skip_passes << std::endl
-            << "Debug display image: " << FLAGS_debug_display_images
+            //<< "Debug display image: " << FLAGS_debug_display_images
             //<< std::endl
             << "Profile: " << FLAGS_profile << std::endl
             //<< "With labels: " << FLAGS_with_labels << std::endl
@@ -457,7 +457,7 @@ void Main() {
 
   // add fuse passes
   if (!FLAGS_skip_passes) {
-    if (FLAGS_mkldnn_used) {
+    if (FLAGS_use_mkldnn) {
       // add passes to execute with MKL-DNN
       config.pass_builder()->AppendPass("conv_bn_fuse_pass");
       config.pass_builder()->AppendPass("conv_eltwiseadd_bn_fuse_pass");
