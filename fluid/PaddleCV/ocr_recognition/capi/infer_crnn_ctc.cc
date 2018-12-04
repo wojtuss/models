@@ -225,33 +225,6 @@ struct Once {
   bool operator()() { return true; }
 };
 
-// void PrintInfo() {
-//   std::cout << std::endl
-//             << "--- Used Parameters: -----------------" << std::endl
-//             << "Inference model: " << FLAGS_infer_model << std::endl
-//             << "File with list of images: " << FLAGS_data_list << std::endl
-//             << "Directory with images: " << FLAGS_data_dir << std::endl
-//             << "File with list of object names: " << FLAGS_label_list
-//             << std::endl
-//             << "Batch size: " << FLAGS_batch_size << std::endl
-//             << "Paddle num threads: " << FLAGS_paddle_num_threads << std::endl
-//             << "Iterations: " << FLAGS_iterations << std::endl
-//             << "Number of batches to skip: " << FLAGS_skip_batch_num
-//             << std::endl
-//             << "Use fake data: " << FLAGS_use_fake_data << std::endl
-//             << "Use MKL-DNN: " << FLAGS_use_mkldnn << std::endl
-//             << "Skip passes: " << FLAGS_skip_passes << std::endl
-//             << "Debug display image: " << FLAGS_debug_display_images
-//             << std::endl
-//             << "Profile: " << FLAGS_profile << std::endl
-//             << "With labels: " << FLAGS_with_labels << std::endl
-//             << "One file params: " << FLAGS_one_file_params << std::endl
-//             << "Channels: " << FLAGS_channels << std::endl
-//             << "Resize size: " << FLAGS_resize_size << std::endl
-//             << "Enable graphviz: " << FLAGS_enable_graphviz << std::endl
-//             << "--------------------------------------" << std::endl;
-// }
-
 struct Iterations {
   explicit Iterations(int64_t iterations) : elapsed_iters{iterations} {}
 
@@ -437,7 +410,7 @@ void Main() {
   contrib::AnalysisConfig config;
   config.model_dir = FLAGS_infer_model;
   config.use_gpu = false;
-  config.enable_ir_optim = !FLAGS_skip_passes;
+  config.enable_ir_optim = true;
   config.SetCpuMathLibraryNumThreads(FLAGS_paddle_num_threads);
 
   if (FLAGS_mkldnn_used) config.EnableMKLDNN();
@@ -446,23 +419,30 @@ void Main() {
   for (int i = config.pass_builder()->AllPasses().size() - 1; i >= 0; i--)
     config.pass_builder()->DeletePass(i);
 
-  // add passes
   config.pass_builder()->AppendPass("infer_clean_graph_pass");
+  // add mkldnn enabling passes
   if (FLAGS_mkldnn_used) {
-    // add passes to execute with MKL-DNN
     config.pass_builder()->AppendPass("mkldnn_placement_pass");
     config.pass_builder()->AppendPass("is_test_pass");
     config.pass_builder()->AppendPass("depthwise_conv_mkldnn_pass");
-    config.pass_builder()->AppendPass("conv_bn_fuse_pass");
-    config.pass_builder()->AppendPass("conv_eltwiseadd_bn_fuse_pass");
-    config.pass_builder()->AppendPass("conv_bias_mkldnn_fuse_pass");
-    config.pass_builder()->AppendPass("conv_elementwise_add_mkldnn_fuse_pass");
-    config.pass_builder()->AppendPass("conv_relu_mkldnn_fuse_pass");
-    config.pass_builder()->AppendPass("fc_fuse_pass");
-  } else {
-    // add passes to execute keeping the order - without MKL-DNN
-    config.pass_builder()->AppendPass("conv_bn_fuse_pass");
-    config.pass_builder()->AppendPass("fc_fuse_pass");
+  }
+
+  // add fuse passes
+  if (!FLAGS_skip_passes) {
+    if (FLAGS_mkldnn_used) {
+      // add passes to execute with MKL-DNN
+      config.pass_builder()->AppendPass("conv_bn_fuse_pass");
+      config.pass_builder()->AppendPass("conv_eltwiseadd_bn_fuse_pass");
+      config.pass_builder()->AppendPass("conv_bias_mkldnn_fuse_pass");
+      config.pass_builder()->AppendPass(
+          "conv_elementwise_add_mkldnn_fuse_pass");
+      config.pass_builder()->AppendPass("conv_relu_mkldnn_fuse_pass");
+      config.pass_builder()->AppendPass("fc_fuse_pass");
+    } else {
+      // add passes to execute keeping the order - without MKL-DNN
+      config.pass_builder()->AppendPass("conv_bn_fuse_pass");
+      config.pass_builder()->AppendPass("fc_fuse_pass");
+    }
   }
 
   // enable plotting .dot files
