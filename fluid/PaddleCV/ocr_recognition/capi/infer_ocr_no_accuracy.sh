@@ -3,7 +3,7 @@ export KMP_BLOCKTIME=1
 export OMP_NUM_THREADS=1
 
 cd build
-./infer_ocr_detection \
+./infer_ocr_recognition \
   --infer_model=/home/wojtuss/repos/PaddlePaddle/data/CRNN-CTC/CRNN-CTC_model_noacc \
   --data_list=/home/wojtuss/repos/PaddlePaddle/data/CRNN-CTC/data/test.list \
   --data_dir=/home/wojtuss/repos/PaddlePaddle/data/CRNN-CTC/data/test_images \
