@@ -63,9 +63,12 @@ def evaluate(args):
         count += 1
         exe.run(fluid.default_main_program(), feed=get_feeder_data(data, place))
     avg_distance, avg_seq_error = evaluator.eval(exe)
-  
-    print("Read %d samples; avg_distance: %s; avg_seq_error: %s" % (
-        count, avg_distance, avg_seq_error))
+    fluid.io.save_inference_model(args.save_model_dir, ["pixel", "label"],
+                                  [avg_distance, avg_seq_error],
+                                  fluid.default_main_program())
+
+    print("Read %d samples; avg_distance: %s; avg_seq_error: %s" %
+          (count, avg_distance, avg_seq_error))
 
 
 def main():

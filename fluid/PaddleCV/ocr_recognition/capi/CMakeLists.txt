@@ -97,5 +97,5 @@ message(STATUS "OpenCV found (${OpenCV_CONFIG_PATH})")
 ##############################################################################
 
 set(TARGET_NAME infer_ocr_detection)
-add_executable(${TARGET_NAME} infer_crnn_ctc.cc)
+add_executable(${TARGET_NAME} infer_ocr.cc data_reader.cc stats.cc)
 target_link_libraries(${TARGET_NAME} ${OpenCV_LIBS} gflags glog ${mkldnn_libs} rt dl pthread)

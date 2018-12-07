@@ -22,13 +22,9 @@
 #include <boost/optional.hpp>
 
 DEFINE_bool(use_mkldnn, false, "Use MKLDNN.");
-DEFINE_string(data_list,
-              "",
-              "Path to a file with a list of images. Format of a line: h w "
-              "filename,comma-separated indices.");
-DEFINE_string(data_dir,
-              "",
-              "Directory with images given in a data_list argument.");
+DEFINE_bool(with_labels, false, "with label");
+DEFINE_string(data_list, "", "Path to a file with a list of images.");
+DEFINE_string(data_dir, "", "Directory with images given in a data_list argument.");
 DEFINE_int64(iterations, 0, "Number of iterations.");
 DEFINE_string(infer_model, "", "Saved inference model.");
 DEFINE_int64(batch_size, 1, "Batch size.");
@@ -40,12 +36,8 @@ DEFINE_bool(profile, false, "Turn on proflier for fluid");
 DEFINE_int64(image_height, 48, "Height of an image.");
 DEFINE_int64(image_width, 384, "Width of an image.");
 DEFINE_bool(skip_passes, false, "Skip running passes.");
-DEFINE_bool(enable_graphviz,
-            false,
-            "Enable graphviz to get .dot files with data flow graphs.");
-DEFINE_int32(paddle_num_threads,
-             1,
-             "Number of threads for each paddle instance.");
+DEFINE_bool(enable_graphviz, false, "Enable graphviz to get dot files with data flow graphs.");
+DEFINE_int32(paddle_num_threads, 1, "Number of threads for each paddle instance.");
 
 namespace {
 class Timer {
@@ -58,7 +50,7 @@ public:
     startu = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> time_span =
         std::chrono::duration_cast<std::chrono::duration<double>>(startu -
-                                                                  start);
+ start);
     double used_time_ms = static_cast<double>(time_span.count()) * 1000.0;
     return used_time_ms;
   }
@@ -73,8 +65,6 @@ void PrintInfo() {
             << "Inference model: " << FLAGS_infer_model << std::endl
             << "File with list of images: " << FLAGS_data_list << std::endl
             << "Directory with images: " << FLAGS_data_dir << std::endl
-            //<< "File with list of object names: " << FLAGS_label_list
-            //<< std::endl
             << "Batch size: " << FLAGS_batch_size << std::endl
             << "Paddle num threads: " << FLAGS_paddle_num_threads << std::endl
             << "Iterations: " << FLAGS_iterations << std::endl
@@ -86,7 +76,7 @@ void PrintInfo() {
             //<< "Debug display image: " << FLAGS_debug_display_images
             //<< std::endl
             << "Profile: " << FLAGS_profile << std::endl
-            //<< "With labels: " << FLAGS_with_labels << std::endl
+            << "With labels: " << FLAGS_with_labels << std::endl
             //<< "One file params: " << FLAGS_one_file_params << std::endl
             //<< "Channels: " << FLAGS_channels << std::endl
             //<< "Resize size: " << FLAGS_resize_size << std::endl
@@ -133,21 +123,17 @@ struct GrayscaleImageReader {
 struct DatafileParser {
   explicit DatafileParser(bool is_circular,
                           std::string data_dir,
-                          std::string data_list_file)
-      : is_circular{is_circular}, data_dir{data_dir} {
-    if (data_list_file.empty()) {
+                          std::string data_list)
+      : is_circular{is_circular}, data_dir{data_dir}, data_list{data_list} {
+    if (data_list.empty()) {
       throw std::invalid_argument("Name of the data list file empty.");
     }
-
-    data_list_stream.open(data_list_file);
-
+    data_list_stream.open(data_list);
     if (!data_list_stream) {
       if (data_list_stream.is_open()) data_list_stream.close();
-
-      throw std::invalid_argument("Couldn't open a file " + data_list_file);
+      throw std::invalid_argument("Couldn't open a file " + data_list);
     }
   }
-
   template <typename R, typename ConvertFunc, typename IT>
   std::pair<R, IT> retrieve_token(IT s, IT e, char sep, ConvertFunc f) {
     std::string token_str;
@@ -155,7 +141,6 @@ struct DatafileParser {
     auto it = std::find(s, e, sep);
     std::copy(s, it, std::back_inserter(token_str));
     R r = f(token_str);
-
     return std::make_pair(std::move(r), std::move(it));
   }
 
@@ -214,7 +199,6 @@ struct DatafileParser {
     return std::make_tuple(height, width, filename, indices);
   };
 
-
   boost::optional<parse_results> Line() {
     std::int64_t height;
     std::int64_t width;
@@ -246,6 +230,7 @@ struct DatafileParser {
 private:
   bool is_circular;
   std::string data_dir;
+  std::string data_list;
   std::ifstream data_list_stream;
 };
 
@@ -268,11 +253,11 @@ struct Iterations {
 struct DataReader {
   explicit DataReader(int64_t iterations,
                       std::string data_dir,
-                      std::string data_list_file,
+                      std::string data_list,
                       int64_t batch_size,
                       int64_t image_height,
                       int64_t image_width)
-      : datafile_parser{iterations != 0, data_dir, data_list_file},
+      : datafile_parser{iterations != 0, data_dir, data_list},
         elapsed_iters{iterations},
         batch_size{batch_size},
         image_height{image_height},
@@ -383,9 +368,9 @@ public:
   }
 };
 
-paddle::PaddleTensor PrepareData(const DataReader::DataChunk& data_chunk) {
-  paddle::PaddleTensor input;
-  input.name = "image";
+bool PrepareData(const DataReader::DataChunk& data_chunk,paddle::PaddleTensor& input, paddle::PaddleTensor& label) {
+  
+  input.name = "pixel";
 
   auto batch_size = std::get<0>(data_chunk);
   auto channels = std::get<1>(data_chunk);
@@ -403,7 +388,22 @@ paddle::PaddleTensor PrepareData(const DataReader::DataChunk& data_chunk) {
   input.data.Reset(image.get(),
                    batch_size * channels * height * width * sizeof(float));
 
-  return input;
+  label.name = "label";
+  int accum_labels = 0;
+  std::vector<size_t> lod;
+  lod.push_back(0);
+  for (int i =0; i<batch_size;i++){
+    accum_labels += indices[i].size();
+    lod.push_back(accum_labels); 
+  }
+
+  label.shape={accum_labels,1};
+  label.data.Resize(accum_labels*sizeof(int64_t));
+  label.dtype=PaddleDType::INT64;
+  label.lod.clear();
+  label.lod.push_back(lod);  
+
+  return true;
 }
 
 void PrintResults(const std::vector<paddle::PaddleTensor>& output) {
@@ -428,6 +428,13 @@ void PrintResults(const std::vector<paddle::PaddleTensor>& output) {
 }
 
 void Main() {
+  PrintInfo();
+
+  struct stat sb;
+  if (stat(FLAGS_infer_model.c_str(), &sb) != 0 || !S_ISDIR(sb.st_mode)) {
+    throw std::invalid_argument(
+        "The infer_model directory does not exist.");
+  }
   DataReader data_reader{FLAGS_skip_batch_num + FLAGS_iterations,
                          FLAGS_data_dir,
                          FLAGS_data_list,
@@ -476,27 +483,27 @@ void Main() {
   // enable plotting .dot files
   if (FLAGS_enable_graphviz) config.pass_builder()->TurnOnDebug();
 
-  auto predictor = CreatePaddlePredictor<contrib::AnalysisConfig,
-                                         PaddleEngineKind::kAnalysis>(config);
 
   Timer timer;
   Timer total_timer;
 
   std::vector<double> fpses;
 
-  auto run_experiment = [&predictor](
-      const paddle::PaddleTensor& input) -> std::vector<paddle::PaddleTensor> {
-    std::vector<paddle::PaddleTensor> output_slots;
-    predictor->Run({input}, &output_slots);
-
-    return output_slots;
-  };
+  paddle::PaddleTensor input;
+  paddle::PaddleTensor label;
+  
+  std::vector<paddle::PaddleTensor> pack_input;
 
   std::cout << "Warm-up: " << FLAGS_skip_batch_num << " iterations.\n";
   for (int i = 0; i < FLAGS_skip_batch_num; ++i) {
     auto data_chunk = data_reader.Batch();
+    PrepareData(*data_chunk,input,label);
 
-    run_experiment(PrepareData(*data_chunk));
+    // define input
+    if (FLAGS_with_labels)
+      pack_input = {input,label};
+    else
+      pack_input = {input};
   }
 
   if (FLAGS_profile) {
@@ -508,15 +515,28 @@ void Main() {
   std::cout << "Execution iterations: " << FLAGS_iterations << " iterations.\n";
 
   int i = 0;
-  while (auto data_chunk = data_reader.Batch()) {
-    auto input = PrepareData(*data_chunk);
-
-    if (i == 0) {
-      total_timer.tic();
-    }
+	while (auto data_chunk = data_reader.Batch()) {
+		PrepareData(*data_chunk,input,label);
+    // define input
+    if (FLAGS_with_labels)
+      pack_input = {input,label};
+    else
+      pack_input = {input};
+   
+	  if (i == 0) {
+		  total_timer.tic();
+  	}
 
     timer.tic();
-    auto output_slots = run_experiment(input);
+    auto predictor = CreatePaddlePredictor<contrib::AnalysisConfig,
+                                         PaddleEngineKind::kAnalysis>(config);
+    
+    std::vector<PaddleTensor> output_slots;
+    
+    if(!predictor->Run(pack_input, &output_slots)){
+      throw std::runtime_error("Prediction failed.");
+    }
+
     double batch_time = timer.toc() / 1000;
 
     double fps = FLAGS_batch_size / batch_time;
