@@ -8,6 +8,7 @@ In order to build C-API inference application follow these three steps:
 2. build paddle's target `inference_lib_dist`.
 3. build capi inference application.
 4. prepare models for inference.
+5. prepare dataset
 
 Each one will be shortly described below.
 ## 1. Build paddle
@@ -45,6 +46,14 @@ is for inference with accuracy measuring.
 
 `fluid/PaddleCV/ocr_recognition/CRNN-CTC_model_noacc.tar.gz`
 is for inference with performance measuring.
+
+## 5. Prepare dataset
+Download the dataset
+```
+cd $PATH_FOR_DATASET
+wget http://paddle-ocr-data.bj.bcebos.com/data.tar.gz
+tar -zxvf data.tar.gz
+```
 
 # Run
 If everything built successfully, you can inference.
