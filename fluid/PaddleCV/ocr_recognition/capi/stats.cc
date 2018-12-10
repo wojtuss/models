@@ -80,8 +80,9 @@ void Stats::Gather(const std::vector<PaddleTensor>& output_slots,
   // first output: avg_cost
   if (output_slots.size() == 0)
     throw std::invalid_argument("Gather: output_slots vector is empty.");
+
+  // second output: total distance
   if (output_slots.size() >= 2UL) {
-    // second output: acc_top1
     if (output_slots[1].lod.size() > 0)
       throw std::invalid_argument(
           "Gather: total distance output has nonempty LoD.");
@@ -89,10 +90,13 @@ void Stats::Gather(const std::vector<PaddleTensor>& output_slots,
       throw std::invalid_argument(
           "Gather: total distance output is of a wrong type.");
     float* total_distance = static_cast<float*>(output_slots[1].data.data());
-    ss << ", total distance: " << *total_distance;
+    total_distances.push_back(*total_distance);
+    // ss << ", total distance: " << *total_distance;
+    ss << ", avg distance: " << FindAverage(total_distances);
   }
+
+  // third output: instance error count
   if (output_slots.size() >= 3UL) {
-    // third output: acc_top5
     if (output_slots[2].lod.size() > 0)
       throw std::invalid_argument(
           "Gather: instance error count output has nonempty LoD.");
@@ -101,8 +105,12 @@ void Stats::Gather(const std::vector<PaddleTensor>& output_slots,
           "Gather: instance error count output is of a wrong type.");
     int64_t* instance_err_count =
         static_cast<int64_t*>(output_slots[2].data.data());
-    ss << ", instance error count: " << *instance_err_count;
+    instance_errors.push_back(*instance_err_count);
+    // ss << ", instance error count: " << *instance_err_count;
+    ss << ", avg instance error: " << FindAverage(instance_errors);
   }
+
+  // fourth output: sequence number
   if (output_slots.size() >= 4UL) {
     if (output_slots[3].lod.size() > 0)
       throw std::invalid_argument(
@@ -111,8 +119,10 @@ void Stats::Gather(const std::vector<PaddleTensor>& output_slots,
       throw std::invalid_argument(
           "Gather: sequence number output is of a wrong type.");
     int64_t* seq_num = static_cast<int64_t*>(output_slots[3].data.data());
-    ss << ", sequence number: " << *seq_num;
+    // ss << ", sequence number: " << *seq_num;
   }
+
+  // fifth output: instance error
   if (output_slots.size() >= 5UL) {
     if (output_slots[4].lod.size() > 0)
       throw std::invalid_argument(
@@ -121,8 +131,9 @@ void Stats::Gather(const std::vector<PaddleTensor>& output_slots,
       throw std::invalid_argument(
           "Gather: instance error output is of a wrong type.");
     int64_t* instance_err = static_cast<int64_t*>(output_slots[3].data.data());
-    ss << ", instance_err number: " << *instance_err;
+    // ss << ", instance error: " << *instance_err;
   }
+
   std::cout << ss.str() << std::endl;
 }
 
@@ -151,17 +162,17 @@ void Stats::Postprocess(double total_time_sec, int total_samples) {
      << ", total time: " << total_time_sec
      << ", total examples/sec: " << examples_per_sec << std::endl;
 
-  // if (infer_accs1.size() > 0) {
-  // SkipFirstNData(infer_accs1, skip_batch_num);
-  // float acc1_avg = FindAverage(infer_accs1);
-  // ss << "Avg current MAP: " << acc1_avg << std::endl;
-  // }
+  if (total_distances.size() > 0) {
+    SkipFirstNData(total_distances, skip_batch_num);
+    double avg_distance = FindAverage(total_distances);
+    ss << "Avg distance: " << avg_distance << std::endl;
+  }
 
-  // if (infer_accs5.size() > 0) {
-  // SkipFirstNData(infer_accs5, skip_batch_num);
-  // float acc5_avg = FindAverage(infer_accs5);
-  // ss << "Accumulative MAP: " << infer_accs5.back() << std::endl;
-  // }
+  if (instance_errors.size() > 0) {
+    SkipFirstNData(instance_errors, skip_batch_num);
+    double avg_instance_error = FindAverage(instance_errors);
+    ss << "Avg instance error: " << avg_instance_error << std::endl;
+  }
   std::cout << ss.str() << std::endl;
 }
 

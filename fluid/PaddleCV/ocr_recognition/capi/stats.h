@@ -30,8 +30,8 @@ struct Stats {
   void Postprocess(double total_time_sec, int total_samples);
 
   std::vector<double> latencies;
-  std::vector<int64_t> total_distances;
-  std::vector<int64_t> instance_err_counts;
+  std::vector<double> total_distances;
+  std::vector<double> instance_errors;
   std::vector<double> fpses;
   int32_t batch_size;
   int32_t skip_batch_num;

@@ -15,7 +15,6 @@ add_arg('model_path',         str,  "",   "The model path to be used for inferen
 add_arg('input_images_dir',   str,  None,   "The directory of images.")
 add_arg('input_images_list',  str,  None,   "The list file of images.")
 add_arg('use_gpu',            bool,  True,      "Whether use GPU to eval.")
-add_arg('saved_model_path', str, "", "Saved model with accuracy")
 # yapf: enable
 
 
@@ -32,7 +31,8 @@ def evaluate(args):
     num_classes = data_reader.num_classes()
     data_shape = data_reader.data_shape()
     # define network
-    evaluator, cost = eval(data_shape, num_classes)
+    decoded_out, evaluator = eval(data_shape, num_classes,
+                                  True if args.use_gpu else False)
 
     # data reader
     test_reader = data_reader.test(
@@ -63,10 +63,6 @@ def evaluate(args):
         count += 1
         exe.run(fluid.default_main_program(), feed=get_feeder_data(data, place))
     avg_distance, avg_seq_error = evaluator.eval(exe)
-    fluid.io.save_inference_model(args.save_model_dir, ["pixel", "label"],
-                                  [avg_distance, avg_seq_error],
-                                  fluid.default_main_program())
-
     print("Read %d samples; avg_distance: %s; avg_seq_error: %s" %
           (count, avg_distance, avg_seq_error))
 
