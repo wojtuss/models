@@ -5,13 +5,6 @@ import tarfile
 
 import numpy as np
 
-
-class SortType(object):
-    GLOBAL = 'global'
-    POOL = 'pool'
-    NONE = "none"
-
-
 class Converter(object):
     def __init__(self, vocab, beg, end, unk, delimiter, add_beg):
         self._vocab = vocab
@@ -21,12 +14,11 @@ class Converter(object):
         self._delimiter = delimiter
         self._add_beg = add_beg
 
-    def __call__(self, sentence):
+    def _call__(self, sentence):
         return ([self._beg] if self._add_beg else []) + [
             self._vocab.get(w, self._unk)
             for w in sentence.split(self._delimiter)
         ] + [self._end]
-
 
 class ComposedConverter(object):
     def __init__(self, converters):
@@ -37,7 +29,6 @@ class ComposedConverter(object):
             self._converters[i](parallel_sentence[i])
             for i in range(len(self._converters))
         ]
-
 
 class SentenceBatchCreator(object):
     def __init__(self, batch_size):
@@ -51,32 +42,11 @@ class SentenceBatchCreator(object):
             self.batch = []
             return tmp
 
-
-class TokenBatchCreator(object):
-    def __init__(self, batch_size):
-        self.batch = []
-        self.max_len = -1
-        self._batch_size = batch_size
-
-    def append(self, info):
-        cur_len = info.max_len
-        max_len = max(self.max_len, cur_len)
-        if max_len * (len(self.batch) + 1) > self._batch_size:
-            result = self.batch
-            self.batch = [info]
-            self.max_len = cur_len
-            return result
-        else:
-            self.max_len = max_len
-            self.batch.append(info)
-
-
 class SampleInfo(object):
     def __init__(self, i, max_len, min_len):
         self.i = i
         self.min_len = min_len
         self.max_len = max_len
-
 
 class MinMaxFilter(object):
     def __init__(self, max_len, min_len, underlying_creator):
@@ -179,7 +149,7 @@ class DataReader(object):
                  tar_fname=None,
                  min_length=0,
                  max_length=100,
-                 shuffle=True,
+                 shuffle=False,
                  shuffle_batch=False,
                  use_token_batch=False,
                  field_delimiter="\t",
@@ -189,10 +159,8 @@ class DataReader(object):
                  unk_mark="<unk>",
                  seed=0):
         self._src_vocab = self.load_dict(src_vocab_fpath)
-        self._only_src = True
-        if trg_vocab_fpath is not None:
-            self._trg_vocab = self.load_dict(trg_vocab_fpath)
-            self._only_src = False
+        self._trg_vocab = self.load_dict(trg_vocab_fpath)
+        self._only_src = False
         self._pool_size = pool_size
         self._batch_size = batch_size
         self._use_token_batch = use_token_batch
@@ -204,8 +172,7 @@ class DataReader(object):
         self._max_length = max_length
         self._field_delimiter = field_delimiter
         self._token_delimiter = token_delimiter
-        self.load_src_trg_ids(end_mark, fpattern, start_mark, tar_fname,
-                              unk_mark)
+        self.load_src_trg_ids(end_mark, fpattern, start_mark, tar_fname,unk_mark)
         self._random = np.random
         self._random.seed(seed)
 
@@ -220,29 +187,26 @@ class DataReader(object):
                 delimiter=self._token_delimiter,
                 add_beg=False)
         ]
-        if not self._only_src:
-            converters.append(
-                Converter(
-                    vocab=self._trg_vocab,
-                    beg=self._trg_vocab[start_mark],
-                    end=self._trg_vocab[end_mark],
-                    unk=self._trg_vocab[unk_mark],
-                    delimiter=self._token_delimiter,
-                    add_beg=True))
-
+        converters.append(
+            Converter(
+                vocab=self._trg_vocab,
+                beg=self._trg_vocab[start_mark],
+                end=self._trg_vocab[end_mark],
+                unk=self._trg_vocab[unk_mark],
+                delimiter=self._token_delimiter,
+                add_beg=True))
         converters = ComposedConverter(converters)
 
         self._src_seq_ids = []
-        self._trg_seq_ids = None if self._only_src else []
+        self._trg_seq_ids = []
         self._sample_infos = []
 
         for i, line in enumerate(self._load_lines(fpattern, tar_fname)):
             src_trg_ids = converters(line)
             self._src_seq_ids.append(src_trg_ids[0])
             lens = [len(src_trg_ids[0])]
-            if not self._only_src:
-                self._trg_seq_ids.append(src_trg_ids[1])
-                lens.append(len(src_trg_ids[1]))
+            self._trg_seq_ids.append(src_trg_ids[1])
+            lens.append(len(src_trg_ids[1]))
             self._sample_infos.append(SampleInfo(i, max(lens), min(lens)))
 
     def _load_lines(self, fpattern, tar_fname):
@@ -255,8 +219,7 @@ class DataReader(object):
             f = tarfile.open(fpaths[0], "r")
             for line in f.extractfile(tar_fname):
                 fields = line.strip("\n").split(self._field_delimiter)
-                if (not self._only_src and len(fields) == 2) or (
-                        self._only_src and len(fields) == 1):
+                if (len(fields) == 2) or ( len(fields) == 1):
                     yield fields
         else:
             for fpath in fpaths:
@@ -268,8 +231,7 @@ class DataReader(object):
                         if six.PY3:
                             line = line.decode()
                         fields = line.strip("\n").split(self._field_delimiter)
-                        if (not self._only_src and len(fields) == 2) or (
-                                self._only_src and len(fields) == 1):
+                        if (len(fields) == 2) or (len(fields) == 1):
                             yield fields
 
     @staticmethod
@@ -286,34 +248,11 @@ class DataReader(object):
         return word_dict
 
     def batch_generator(self):
-        # global sort or global shuffle
-        if self._sort_type == SortType.GLOBAL:
-            infos = sorted(self._sample_infos, key=lambda x: x.max_len)
-        else:
-            if self._shuffle:
-                infos = self._sample_infos
-                self._random.shuffle(infos)
-            else:
-                infos = self._sample_infos
-
-            if self._sort_type == SortType.POOL:
-                reverse = True
-                for i in range(0, len(infos), self._pool_size):
-                    # to avoid placing short next to long sentences
-                    reverse = not reverse
-                    infos[i:i + self._pool_size] = sorted(
-                        infos[i:i + self._pool_size],
-                        key=lambda x: x.max_len,
-                        reverse=reverse)
-
+        infos = self._sample_infos
         # concat batch
         batches = []
-        batch_creator = TokenBatchCreator(
-            self._batch_size
-        ) if self._use_token_batch else SentenceBatchCreator(self._batch_size)
-        batch_creator = MinMaxFilter(self._max_length, self._min_length,
-                                     batch_creator)
-
+        batch_creator = SentenceBatchCreator(self._batch_size)
+        batch_creator = MinMaxFilter(self._max_length, self._min_length,batch_creator)
         for info in infos:
             batch = batch_creator.append(info)
             if batch is not None:
@@ -322,14 +261,7 @@ class DataReader(object):
         if not self._clip_last_batch and len(batch_creator.batch) != 0:
             batches.append(batch_creator.batch)
 
-        if self._shuffle_batch:
-            self._random.shuffle(batches)
-
         for batch in batches:
             batch_ids = [info.i for info in batch]
 
-            if self._only_src:
-                yield [[self._src_seq_ids[idx]] for idx in batch_ids]
-            else:
-                yield [(self._src_seq_ids[idx], self._trg_seq_ids[idx][:-1],
-                        self._trg_seq_ids[idx][1:]) for idx in batch_ids]
+            yield [(self._src_seq_ids[idx], self._trg_seq_ids[idx][:-1], self._trg_seq_ids[idx][1:]) for idx in batch_ids]
