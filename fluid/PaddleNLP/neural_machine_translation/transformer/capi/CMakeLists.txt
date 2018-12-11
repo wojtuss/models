@@ -87,6 +87,6 @@ endif()
 
 ##############################################################################
 
-set(TARGET_NAME infer_object_detection)
-add_executable(${TARGET_NAME} infer_object_detection.cc data_reader.cc stats.cc)
+set(TARGET_NAME infer_neural_machine_translation)
+add_executable(${TARGET_NAME} infer_neural_machine_translation.cc data_reader.cc stats.cc)
 target_link_libraries(${TARGET_NAME} gflags glog ${mkldnn_libs} rt dl pthread)
