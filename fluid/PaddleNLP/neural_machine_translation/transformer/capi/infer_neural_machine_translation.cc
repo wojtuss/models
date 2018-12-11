@@ -59,9 +59,30 @@ DEFINE_int32(
     255,
     "The maximum depth(translation length) for Beam Search algorithm.");
 
-namespace {}  // namespace
+namespace {
+
+class Timer {
+public:
+  std::chrono::high_resolution_clock::time_point start;
+  std::chrono::high_resolution_clock::time_point startu;
+
+  void tic() { start = std::chrono::high_resolution_clock::now(); }
+  double toc() {
+    startu = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> time_span =
+        std::chrono::duration_cast<std::chrono::duration<double>>(startu -
+                                                                  start);
+    double used_time_ms = static_cast<double>(time_span.count()) * 1000.0;
+    return used_time_ms;
+  }
+};
+}  // namespace
 
 namespace paddle {
+
+void InitializeReader(std::unique_ptr<DataReader>& reader){
+  reader.reset(new DataReader(FLAGS_))
+}
 
 void PrintInfo() {
   std::cout << std::endl
@@ -85,6 +106,32 @@ void PrintInfo() {
 void Main() {
   PrintInfo();
   // Test variables and call everything
+  if (FLAGS_batch_size <= 0)
+    throw std::invalid_argument(
+        "The batch_size option is less than or equal to 0.");
+  if (FLAGS_iterations <= 0)
+    throw std::invalid_argument(
+        "The iterations option is less than or equal to 0.");
+  if (FLAGS_skip_batch_num < 0)
+    throw std::invalid_argument("The skip_batch_num option is less than 0.");
+  struct stat sb;
+  if (stat(FLAGS_infer_model.c_str(), &sb) != 0 || !S_ISDIR(sb.st_mode)) {
+    throw std::invalid_argument(
+        "The inference model directory does not exist.");
+  }
+  if (FLAGS_with_labels && FLAGS_use_fake_data)
+    throw std::invalid_argument("Cannot use fake data for accuracy measuring.");
+ 
+  std::unique_ptr<DataReader> reader;
+
+  if (FLAGS_use_fake_data){
+    
+  }
+  else{
+   
+  }
+
+  
 }
 
 }  // namespace paddle
