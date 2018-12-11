@@ -23,7 +23,7 @@ namespace paddle {
 
 struct DataReader {
   explicit DataReader(std::string vocab_path,
-                      std::string test_translation_file,
+                      std::string test_translation_path,
                       std::vector<std::string> special_token,
                       int batch_size);
 
@@ -31,10 +31,12 @@ struct DataReader {
 
 private:
   void load_dict();
-
+  void load_lines();
   const std::string vocab_path;
-  const std::ifstream test_translation_file;
+  const std::string test_translation_path;
   const std::vector<std::string> special_token;
+  const std::vector<std::string> test_lines;
+
   const int batch_size;
   const char sentence_sep{'\t'};
   const char word_sep{' '};

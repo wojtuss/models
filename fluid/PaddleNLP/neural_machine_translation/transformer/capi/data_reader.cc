@@ -17,11 +17,11 @@
 namespace paddle {
 
 DataReader::DataReader(std::string vocab_path,
-                       std::string test_translation_file,
+                       std::string test_translation_path,
                        std::vector<std::string> special_token,
                        int batch_size)
     : vocab_path(std::move(vocab_path)),
-      test_translation_file(std::move(test_translation_file)),
+      test_translation_path(std::move(test_translation_path)),
       special_token(std::move(special_token)),
       batch_size(batch_size) {
   load_dict();
@@ -38,4 +38,14 @@ void DataReader::load_dict() {
   }
 }
 
+void DataReader::load_lines(){
+	std::ifstream test_translation_file(test_translation_path);
+  std::string line;
+  test_lines.clear();
+  
+  for (int i = 0; std::getline(test_translation_file,line);i++){
+		string firstpart=string.splitwor(sentence_sep)[0]
+    test_lines.push_back(firstpart);
+	} 
+}
 }  // namespace paddle
