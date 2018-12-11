@@ -12,14 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "data_reader.h"
+
 namespace paddle {
 
 DataReader::DataReader(std::string vocab_path,
                        std::string test_translation_file,
                        std::vector<std::string> special_token,
                        int batch_size)
-    : infer_model_path(std::move(infer_model_path)),
-      vocab_path(std::move(vocab_path)),
+    : vocab_path(std::move(vocab_path)),
       test_translation_file(std::move(test_translation_file)),
       special_token(std::move(special_token)),
       batch_size(batch_size) {}
