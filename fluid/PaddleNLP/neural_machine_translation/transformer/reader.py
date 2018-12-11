@@ -2,9 +2,7 @@ import glob
 import six
 import os
 import tarfile
-
 import numpy as np
-
 class Converter(object):
     def __init__(self, vocab, beg, end, unk, delimiter, add_beg):
         self._vocab = vocab
@@ -64,80 +62,7 @@ class MinMaxFilter(object):
     def batch(self):
         return self._creator.batch
 
-
 class DataReader(object):
-    """
-    The data reader loads all data from files and produces batches of data
-    in the way corresponding to settings.
-
-    An example of returning a generator producing data batches whose data
-    is shuffled in each pass and sorted in each pool:
-
-    ```
-    train_data = DataReader(
-        src_vocab_fpath='data/src_vocab_file',
-        trg_vocab_fpath='data/trg_vocab_file',
-        fpattern='data/part-*',
-        use_token_batch=True,
-        batch_size=2000,
-        pool_size=10000,
-        sort_type=SortType.POOL,
-        shuffle=True,
-        shuffle_batch=True,
-        start_mark='<s>',
-        end_mark='<e>',
-        unk_mark='<unk>',
-        clip_last_batch=False).batch_generator
-    ```
-
-    :param src_vocab_fpath: The path of vocabulary file of source language.
-    :type src_vocab_fpath: basestring
-    :param trg_vocab_fpath: The path of vocabulary file of target language.
-    :type trg_vocab_fpath: basestring
-    :param fpattern: The pattern to match data files.
-    :type fpattern: basestring
-    :param batch_size: The number of sequences contained in a mini-batch.
-        or the maximum number of tokens (include paddings) contained in a
-        mini-batch.
-    :type batch_size: int
-    :param pool_size: The size of pool buffer.
-    :type pool_size: int
-    :param sort_type: The grain to sort by length: 'global' for all
-        instances; 'pool' for instances in pool; 'none' for no sort.
-    :type sort_type: basestring
-    :param clip_last_batch: Whether to clip the last uncompleted batch.
-    :type clip_last_batch: bool
-    :param tar_fname: The data file in tar if fpattern matches a tar file.
-    :type tar_fname: basestring
-    :param min_length: The minimum length used to filt sequences.
-    :type min_length: int
-    :param max_length: The maximum length used to filt sequences.
-    :type max_length: int
-    :param shuffle: Whether to shuffle all instances.
-    :type shuffle: bool
-    :param shuffle_batch: Whether to shuffle the generated batches.
-    :type shuffle_batch: bool
-    :param use_token_batch: Whether to produce batch data according to
-        token number.
-    :type use_token_batch: bool
-    :param field_delimiter: The delimiter used to split source and target in
-        each line of data file.
-    :type field_delimiter: basestring
-    :param token_delimiter: The delimiter used to split tokens in source or
-        target sentences.
-    :type token_delimiter: basestring
-    :param start_mark: The token representing for the beginning of
-        sentences in dictionary.
-    :type start_mark: basestring
-    :param end_mark: The token representing for the end of sentences
-        in dictionary.
-    :type end_mark: basestring
-    :param unk_mark: The token representing for unknown word in dictionary.
-    :type unk_mark: basestring
-    :param seed: The seed for random.
-    :type seed: int
-    """
-
     def __init__(self,
                  src_vocab_fpath,
                  trg_vocab_fpath,
@@ -176,8 +101,7 @@ class DataReader(object):
         self._random = np.random
         self._random.seed(seed)
 
-    def load_src_trg_ids(self, end_mark, fpattern, start_mark, tar_fname,
-                         unk_mark):
+    def load_src_trg_ids(self, end_mark, fpattern, start_mark, tar_fname, unk_mark):
         converters = [
             Converter(
                 vocab=self._src_vocab,
@@ -212,27 +136,15 @@ class DataReader(object):
     def _load_lines(self, fpattern, tar_fname):
         fpaths = glob.glob(fpattern)
 
-        if len(fpaths) == 1 and tarfile.is_tarfile(fpaths[0]):
-            if tar_fname is None:
-                raise Exception("If tar file provided, please set tar_fname.")
-
-            f = tarfile.open(fpaths[0], "r")
-            for line in f.extractfile(tar_fname):
-                fields = line.strip("\n").split(self._field_delimiter)
-                if (len(fields) == 2) or ( len(fields) == 1):
-                    yield fields
-        else:
-            for fpath in fpaths:
-                if not os.path.isfile(fpath):
-                    raise IOError("Invalid file: %s" % fpath)
-
-                with open(fpath, "rb") as f:
-                    for line in f:
-                        if six.PY3:
-                            line = line.decode()
-                        fields = line.strip("\n").split(self._field_delimiter)
-                        if (len(fields) == 2) or (len(fields) == 1):
-                            yield fields
+        if not os.path.isfile(fpath):
+                raise IOError("Invalid file: %s" % fpath)
+            with open(fpath, "rb") as f:
+                for line in f:
+                    if six.PY3:
+                        line = line.decode()
+                    fields = line.strip("\n").split(self._field_delimiter)
+                    if (len(fields) == 2) or (len(fields) == 1):
+                        yield fields
 
     @staticmethod
     def load_dict(dict_path, reverse=False):
@@ -263,5 +175,4 @@ class DataReader(object):
 
         for batch in batches:
             batch_ids = [info.i for info in batch]
-
             yield [(self._src_seq_ids[idx], self._trg_seq_ids[idx][:-1], self._trg_seq_ids[idx][1:]) for idx in batch_ids]
