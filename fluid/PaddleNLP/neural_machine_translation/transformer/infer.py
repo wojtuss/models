@@ -59,14 +59,21 @@ def parse_args():
         help='See config.py for all options',
         default=None,
         nargs=argparse.REMAINDER)
+    parser.add_argument(
+        "--save_model_dir",
+        type=str,
+        default="",
+        help="The directory to save the model to.")
     args = parser.parse_args()
     # Append args related to dict
     src_dict = reader.DataReader.load_dict(args.src_vocab_fpath)
     trg_dict = reader.DataReader.load_dict(args.trg_vocab_fpath)
     dict_args = [
-        "src_vocab_size", str(len(src_dict)), "trg_vocab_size",
-        str(len(trg_dict)), "bos_idx", str(src_dict[args.special_token[0]]),
-        "eos_idx", str(src_dict[args.special_token[1]]), "unk_idx",
+        "src_vocab_size",
+        str(len(src_dict)), "trg_vocab_size",
+        str(len(trg_dict)), "bos_idx",
+        str(src_dict[args.special_token[0]]), "eos_idx",
+        str(src_dict[args.special_token[1]]), "unk_idx",
         str(src_dict[args.special_token[2]])
     ]
     merge_cfg_from_list(args.opts + dict_args,
@@ -119,9 +126,8 @@ def prepare_batch_input(insts, data_input_names, src_pad_idx, bos_idx, n_head,
 
     # beamsearch_op must use tensors with lod
     init_score = to_lodtensor(
-        np.zeros_like(
-            trg_word, dtype="float32").reshape(-1, 1),
-        place, [range(trg_word.shape[0] + 1)] * 2)
+        np.zeros_like(trg_word, dtype="float32").reshape(-1, 1), place,
+        [range(trg_word.shape[0] + 1)] * 2)
     trg_word = to_lodtensor(trg_word, place, [range(trg_word.shape[0] + 1)] * 2)
 
     data_input_dict = dict(
@@ -168,10 +174,21 @@ def fast_infer(test_data, trg_idx2word):
             data, encoder_data_input_fields + fast_decoder_data_input_fields,
             ModelHyperParams.eos_idx, ModelHyperParams.bos_idx,
             ModelHyperParams.n_head, ModelHyperParams.d_model, place)
-        seq_ids, seq_scores = exe.run(infer_program,
-                                      feed=data_input,
-                                      fetch_list=[out_ids, out_scores],
-                                      return_numpy=False)
+
+        if args.save_inference_model:
+            fluid.io.save_inference_model(
+                args.save_model_dir,
+                data_input, [out_ids, out_scores],
+                exe,
+                main_program=infer_program)
+            print("Model saved!")
+            exit()
+
+        seq_ids, seq_scores = exe.run(
+            infer_program,
+            feed=data_input,
+            fetch_list=[out_ids, out_scores],
+            return_numpy=False)
         # How to parse the results:
         #   Suppose the lod of seq_ids is:
         #     [[0, 3, 6], [0, 12, 24, 40, 54, 67, 82]]
@@ -189,8 +206,7 @@ def fast_infer(test_data, trg_idx2word):
                 sub_start = seq_ids.lod()[1][start + j]
                 sub_end = seq_ids.lod()[1][start + j + 1]
                 hyps[i].append(" ".join([
-                    trg_idx2word[idx]
-                    for idx in post_process_seq(
+                    trg_idx2word[idx] for idx in post_process_seq(
                         np.array(seq_ids)[sub_start:sub_end])
                 ]))
                 scores[i].append(np.array(seq_scores)[sub_end - 1])
