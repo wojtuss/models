@@ -42,10 +42,40 @@ void DataReader::load_lines(){
 	std::ifstream test_translation_file(test_translation_path);
   std::string line;
   test_lines.clear();
-  
+
   for (int i = 0; std::getline(test_translation_file,line);i++){
 		string firstpart=string.splitwor(sentence_sep)[0]
     test_lines.push_back(firstpart);
-	} 
+	}
 }
+
+void DataReader : convert(const std::string& sentence) {
+   // return ([_beg] if self._add_beg else []) + [
+   //          self._vocab.get(w, self._unk)
+   //          for w in sentence.split(self._delimiter)
+   //      ] + [self._end]
+
+
+   // beg=self._src_vocab[start_mark],
+  //         end=self._src_vocab[end_mark],
+  //         unk=self._src_vocab[unk_mark],
+  //         delimiter=self._token_delimiter,
+  //         add_beg=False)
+  // ]
+}
+
+void DataReader::load_src_trg_ids() {
+  std::vector<int> src_seq_ids;
+  std::vector<tuple<int, int, int>>, sample_infos;
+
+
+  for (int i = 0; i < test_lines.size(); i++) {
+    auto src_trg_ids = convert(test_lines[i]);
+    src_seq_ids.push_back(src_trg_ids);
+    lens = src_trg_ids.size();
+    trg_seq_ids.append(src_trg_ids[1]) lens.append(len(src_trg_ids[1]));
+    self._sample_infos.append({i, max(lens), min(lens)});
+  }
+}
+
 }  // namespace paddle
