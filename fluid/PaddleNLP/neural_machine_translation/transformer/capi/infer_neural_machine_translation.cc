@@ -81,7 +81,13 @@ public:
 namespace paddle {
 
 void InitializeReader(std::unique_ptr<DataReader>& reader){
-  reader.reset(new DataReader(FLAGS_))
+  reader.reset(new DataReader(FLAGS_all_vocab_fpath,FLAGS_test_file_pattern,FLAGS_special_token,FLAGS_batch_size));
+}
+
+bool ReadNextBatch(PaddleTensor& input_data, std::unique_ptr<DataReader>& reader){
+
+bool flag = reader->NextBatch(static_cast<int*>input_data.data.data(),)
+
 }
 
 void PrintInfo() {
@@ -103,6 +109,48 @@ void PrintInfo() {
             << "Max out len : " << FLAGS_max_out_len << std::endl
             << "--------------------------------------" << std::endl;
 }
+
+
+void PrepareConfig(contrib::AnalysisConfig& config) {
+  if (FLAGS_one_file_params) {
+    config.param_file = FLAGS_infer_model + "/params";
+    config.prog_file = FLAGS_infer_model + "/model";
+  } else {
+    config.model_dir = FLAGS_infer_model;
+  }
+  config.use_gpu = false;
+  config.device = 0;
+  config.enable_ir_optim = !FLAGS_skip_passes;
+  config.specify_input_name = false;
+  config.SetCpuMathLibraryNumThreads(FLAGS_paddle_num_threads);
+  if (FLAGS_use_mkldnn) config.EnableMKLDNN();
+
+  // remove all passes so that we can add them in correct order
+  for (int i = config.pass_builder()->AllPasses().size() - 1; i >= 0; i--)
+    config.pass_builder()->DeletePass(i);
+
+  // add passes
+  config.pass_builder()->AppendPass("infer_clean_graph_pass");
+  if (FLAGS_use_mkldnn) {
+    // add passes to execute with MKL-DNN
+    config.pass_builder()->AppendPass("mkldnn_placement_pass");
+    config.pass_builder()->AppendPass("is_test_pass");
+    config.pass_builder()->AppendPass("depthwise_conv_mkldnn_pass");
+    config.pass_builder()->AppendPass("conv_bn_fuse_pass");
+    config.pass_builder()->AppendPass("conv_eltwiseadd_bn_fuse_pass");
+    config.pass_builder()->AppendPass("conv_bias_mkldnn_fuse_pass");
+    config.pass_builder()->AppendPass("conv_elementwise_add_mkldnn_fuse_pass");
+    config.pass_builder()->AppendPass("conv_relu_mkldnn_fuse_pass");
+    config.pass_builder()->AppendPass("fc_fuse_pass");
+  } else {
+    // add passes to execute keeping the order - without MKL-DNN
+    config.pass_builder()->AppendPass("conv_bn_fuse_pass");
+    config.pass_builder()->AppendPass("fc_fuse_pass");
+  }
+
+  if (FLAGS_enable_graphviz) config.pass_builder()->TurnOnDebug();
+}
+
 void Main() {
   PrintInfo();
   // Test variables and call everything
@@ -130,7 +178,11 @@ void Main() {
   else{
    
   }
+  
+  paddle::PaddleTensor input_fpattern = DefineInputData;
+  std::vector<string> trg_idx2word = reader.load_dict();
 
+   
   
 }
 
