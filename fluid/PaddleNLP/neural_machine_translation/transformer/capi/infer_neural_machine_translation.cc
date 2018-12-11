@@ -14,6 +14,7 @@
 
 //#include "paddle/fluid/inference/analysis/analyzer.h"
 #include <gflags/gflags.h>
+#include <iostream>
 #include <map>
 #include <random>
 #include <string>
@@ -53,11 +54,12 @@ DEFINE_int32(paddle_num_threads,
              1,
              "Number of threads for each paddle instance.");
 DEFINE_int32(beam_size, 4, "Search width for Beam Search algorithm.");
-DEFINE_int32(max_out_len,
-             255,
-             "The maximum depth(translation length) for Beam Search algorithm.")
+DEFINE_int32(
+    max_out_len,
+    255,
+    "The maximum depth(translation length) for Beam Search algorithm.");
 
-    namespace {}  // namespace
+namespace {}  // namespace
 
 namespace paddle {
 
@@ -77,8 +79,8 @@ void PrintInfo() {
             << "Profile: " << FLAGS_profile << std::endl
             << "Paddle num threads : " << FLAGS_paddle_num_threads << std::endl
             << "Beam size : " << FLAGS_beam_size << std::endl
-            << "Max out len : " << FLAGS_max_out_len << std::endl;
-  << "--------------------------------------" << std::endl;
+            << "Max out len : " << FLAGS_max_out_len << std::endl
+            << "--------------------------------------" << std::endl;
 }
 void Main() {
   PrintInfo();
