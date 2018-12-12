@@ -16,12 +16,36 @@
 
 namespace paddle {
 
+
+namespace {
+static void split(const std::string& str,
+                  char sep,
+                  std::vector<std::string>* pieces) {
+  pieces->clear();
+  if (str.empty()) {
+    return;
+  }
+  size_t pos = 0;
+  size_t next = str.find(sep, pos);
+  while (next != std::string::npos) {
+    pieces->push_back(str.substr(pos, next - pos));
+    pos = next + 1;
+    next = str.find(sep, pos);
+  }
+  if (!str.substr(pos).empty()) {
+    pieces->push_back(str.substr(pos));
+  }
+}
+
+
+}  // namespace
+
 DataReader::DataReader(std::string vocab_path,
-                       std::string test_translation_path,
+                       std::string test_translation_file,
                        std::vector<std::string> special_token,
                        int batch_size)
     : vocab_path(std::move(vocab_path)),
-      test_translation_path(std::move(test_translation_path)),
+      test_translation_file(std::move(test_translation_file)),
       special_token(std::move(special_token)),
       batch_size(batch_size) {
   load_dict();
@@ -50,18 +74,22 @@ void DataReader::load_lines(){
 }
 
 void DataReader : convert(const std::string& sentence) {
-   // return ([_beg] if self._add_beg else []) + [
-   //          self._vocab.get(w, self._unk)
-   //          for w in sentence.split(self._delimiter)
-   //      ] + [self._end]
+  std::vector<std::string> pieces;
+  std::vector<int> indices;
+  indices.push_back();
 
-
-   // beg=self._src_vocab[start_mark],
-  //         end=self._src_vocab[end_mark],
-  //         unk=self._src_vocab[unk_mark],
-  //         delimiter=self._token_delimiter,
-  //         add_beg=False)
-  // ]
+  sentence.split(sentence, word_sep, pieces);
+  // indices.push_back(beg);
+  for (auto& word : pieces) {
+    auto search = word_to_ind.find(word);
+    if (search != word_to_ind.end()) {
+      indices.push_back(search->second);
+    } else {
+      indices.push_back(word_to_ind[unk]);
+    }
+  }
+  indices.push_back(end);
+  return indices;
 }
 
 void DataReader::load_src_trg_ids() {
@@ -73,8 +101,7 @@ void DataReader::load_src_trg_ids() {
     auto src_trg_ids = convert(test_lines[i]);
     src_seq_ids.push_back(src_trg_ids);
     lens = src_trg_ids.size();
-    trg_seq_ids.append(src_trg_ids[1]) lens.append(len(src_trg_ids[1]));
-    self._sample_infos.append({i, max(lens), min(lens)});
+    self.sample_infos.emplace_back(i, max(lens), min(lens));
   }
 }
 

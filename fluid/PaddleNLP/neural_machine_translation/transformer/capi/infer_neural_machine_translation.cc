@@ -13,6 +13,7 @@
 // limitations under the License.
 
 //#include "paddle/fluid/inference/analysis/analyzer.h"
+#include <chrono>
 #include <gflags/gflags.h>
 #include <iostream>
 #include <map>
