@@ -80,7 +80,7 @@ def parse_args():
                         [InferTaskConfig, ModelHyperParams])
     return args
 
-
+#delete the starting character and ending character of the result sequence
 def post_process_seq(seq,
                      bos_idx=ModelHyperParams.bos_idx,
                      eos_idx=ModelHyperParams.eos_idx,
@@ -102,6 +102,9 @@ def post_process_seq(seq,
     return seq
 
 
+
+# put the insts(data_input) to the dict
+# pad the batch of data to the same length as the longgest one 
 def prepare_batch_input(insts, data_input_names, src_pad_idx, bos_idx, n_head,
                         d_model, place):
     """
@@ -171,9 +174,7 @@ def fast_infer(test_data, trg_idx2word):
 
     for batch_id, data in enumerate(test_data.batch_generator()):
         data_input = prepare_batch_input(
-            data, encoder_data_input_fields + fast_decoder_data_input_fields,
-            ModelHyperParams.eos_idx, ModelHyperParams.bos_idx,
-            ModelHyperParams.n_head, ModelHyperParams.d_model, place)
+            data, encoder_data_input_fields + fast_decoder_data_input_fields, ModelHyperParams.eos_idx, ModelHyperParams.bos_idx, ModelHyperParams.n_head, ModelHyperParams.d_model, place)
 
         if args.save_inference_model:
             fluid.io.save_inference_model(
@@ -225,7 +226,7 @@ def infer(args, inferencer=fast_infer):
         use_token_batch=False,
         batch_size=args.batch_size,
         pool_size=args.pool_size,
-        sort_type=reader.SortType.NONE,
+        sort_type="none",
         shuffle=False,
         shuffle_batch=False,
         start_mark=args.special_token[0],
@@ -237,7 +238,7 @@ def infer(args, inferencer=fast_infer):
     trg_idx2word = test_data.load_dict(
         dict_path=args.trg_vocab_fpath, reverse=True)
     inferencer(test_data, trg_idx2word)
-
+    print("end here");
 
 if __name__ == "__main__":
     args = parse_args()

@@ -69,7 +69,7 @@ class DataReader(object):
                  fpattern,
                  batch_size,
                  pool_size,
-                 sort_type=SortType.GLOBAL,
+                 sort_type="none",
                  clip_last_batch=True,
                  tar_fname=None,
                  min_length=0,
@@ -133,11 +133,14 @@ class DataReader(object):
             lens.append(len(src_trg_ids[1]))
             self._sample_infos.append(SampleInfo(i, max(lens), min(lens)))
 
-    def _load_lines(self, fpattern, tar_fname):
-        fpaths = glob.glob(fpattern)
-
+    def _load_lines(self, fpath, tar_fname):
+        #fpaths = glob.glob(fpattern)
+        #for fpath in fpaths:
+        #    print(fpath+'\t')
+        #fpath=fpaths[0]
+        
         if not os.path.isfile(fpath):
-                raise IOError("Invalid file: %s" % fpath)
+            raise IOError("Invalid file: %s" % fpath)
             with open(fpath, "rb") as f:
                 for line in f:
                     if six.PY3:
