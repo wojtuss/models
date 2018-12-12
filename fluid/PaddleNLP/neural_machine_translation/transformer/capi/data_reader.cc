@@ -23,6 +23,19 @@ DataReader::DataReader(std::string vocab_path,
     : vocab_path(std::move(vocab_path)),
       test_translation_file(std::move(test_translation_file)),
       special_token(std::move(special_token)),
-      batch_size(batch_size) {}
+      batch_size(batch_size) {
+  load_dict();
+}
+
+void DataReader::load_dict() {
+  std::ifstream vocab_file(vocab_path);
+  std::string line;
+  word_to_ind.clear();
+  ind_to_word.clear();
+  for (int i = 0; std::getline(vocab_file, line); i++) {
+    word_to_ind[line] = i;
+    ind_to_word[i] = std::move(line);
+  }
+}
 
 }  // namespace paddle

@@ -15,6 +15,7 @@
 #pragma once
 
 #include <fstream>
+#include <map>
 #include <string>
 #include <vector>
 
@@ -26,16 +27,19 @@ struct DataReader {
                       std::vector<std::string> special_token,
                       int batch_size);
 
-// NextBatch()
+  // NextBatch()
 
 private:
+  void load_dict();
+
   const std::string vocab_path;
-  const std::ifstream vocab_file;
   const std::ifstream test_translation_file;
   const std::vector<std::string> special_token;
   const int batch_size;
   const char sentence_sep{'\t'};
   const char word_sep{' '};
+  std::map<std::string, int> word_to_ind;
+  std::map<int, std::string> ind_to_word;
 };
 
 }  // namespace paddle
