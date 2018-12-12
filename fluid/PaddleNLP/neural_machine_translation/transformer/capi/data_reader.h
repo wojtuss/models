@@ -17,6 +17,7 @@
 #include <fstream>
 #include <map>
 #include <string>
+#include <tuple>
 #include <vector>
 
 namespace paddle {
@@ -24,7 +25,6 @@ namespace paddle {
 struct DataReader {
   explicit DataReader(std::string vocab_path,
                       std::string test_translation_path,
-                      std::vector<std::string> special_token,
                       int batch_size);
 
   // NextBatch()
@@ -32,16 +32,20 @@ struct DataReader {
 private:
   void load_dict();
   void load_lines();
+  void load_src_trg_ids();
+
   const std::string vocab_path;
   const std::string test_translation_path;
-  const std::vector<std::string> special_token;
   const std::vector<std::string> test_lines;
-
   const int batch_size;
+  std::string beg{"<s>"};
+  std::string end{"<e>"};
+  std::string unk{"<unk>"};
   const char sentence_sep{'\t'};
   const char word_sep{' '};
   std::map<std::string, int> word_to_ind;
   std::map<int, std::string> ind_to_word;
+  std::vector<std::tuple<int, int, int>> sample_infos;
 };
 
 }  // namespace paddle

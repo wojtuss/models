@@ -28,9 +28,6 @@ DEFINE_string(infer_model, "", "Directory of the inference model.");
 DEFINE_string(all_vocab_fpath,
               "",
               "Path to a vocabulary file with both languages.");
-DEFINE_string(special_token,
-              "<s> <e> <unk>",
-              "The <bos>, <eos> and <unk> tokens in the dictionary.");
 DEFINE_string(test_file_pattern, "", "The pattern to match test data files.");
 DEFINE_string(token_delimiter,
               " ",
@@ -89,7 +86,6 @@ void PrintInfo() {
             << "--- Used Parameters: -----------------" << std::endl
             << "Inference model: " << FLAGS_infer_model << std::endl
             << "Vocab file: " << FLAGS_all_vocab_fpath << std::endl
-            << "Special tokens: " << FLAGS_special_token << std::endl
             << "Test file pattern: " << FLAGS_test_file_pattern << std::endl
             << "Token delimiter: " << FLAGS_token_delimiter << std::endl
             << "Batch size: " << FLAGS_batch_size << std::endl
@@ -121,17 +117,17 @@ void Main() {
   }
   if (FLAGS_with_labels && FLAGS_use_fake_data)
     throw std::invalid_argument("Cannot use fake data for accuracy measuring.");
- 
+
   std::unique_ptr<DataReader> reader;
 
   if (FLAGS_use_fake_data){
-    
+
   }
   else{
-   
+
   }
 
-  
+
 }
 
 }  // namespace paddle
