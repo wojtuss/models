@@ -32,7 +32,9 @@ struct DataReader {
 private:
   void load_dict();
   void load_lines();
-  void load_src_trg_ids();
+  void load_src_trg_ids(const std::vector<std::string>& test_lines);
+  std::vector<int> convert_to_ind(const std::string& sentence);
+  std::string convert_to_sentence(const std::vector<int>& indices);
 
   const std::string vocab_path;
   const std::string test_translation_path;
@@ -45,6 +47,8 @@ private:
   const char word_sep{' '};
   std::map<std::string, int> word_to_ind;
   std::map<int, std::string> ind_to_word;
+  std::vector<std::vector<int>> src_seq_ids;
+  // TODO(sfraczek): This seems to be irrelevant since we read only en (no de)
   std::vector<std::tuple<int, int, int>> sample_infos;
 };
 

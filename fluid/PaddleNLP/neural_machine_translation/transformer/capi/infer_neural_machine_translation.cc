@@ -78,15 +78,15 @@ public:
 
 namespace paddle {
 
-void InitializeReader(std::unique_ptr<DataReader>& reader){
-  reader.reset(new DataReader(FLAGS_all_vocab_fpath,FLAGS_test_file_pattern,FLAGS_special_token,FLAGS_batch_size));
+void InitializeReader(std::unique_ptr<DataReader>& reader) {
+  reader.reset(new DataReader(
+      FLAGS_all_vocab_fpath, FLAGS_test_file_pattern, FLAGS_batch_size));
 }
 
-bool ReadNextBatch(PaddleTensor& input_data, std::unique_ptr<DataReader>& reader){
-
-bool flag = reader->NextBatch(static_cast<int*>input_data.data.data(),)
-
-}
+// bool ReadNextBatch(PaddleTensor& input_data,
+//                    std::unique_ptr<DataReader>& reader) {
+  // bool flag = reader->NextBatch(static_cast<int*> input_data.data.data(), )
+// }
 
 void PrintInfo() {
   std::cout << std::endl
@@ -154,31 +154,16 @@ void Main() {
   if (FLAGS_batch_size <= 0)
     throw std::invalid_argument(
         "The batch_size option is less than or equal to 0.");
-  if (FLAGS_iterations <= 0)
-    throw std::invalid_argument(
-        "The iterations option is less than or equal to 0.");
-  if (FLAGS_skip_batch_num < 0)
-    throw std::invalid_argument("The skip_batch_num option is less than 0.");
-  struct stat sb;
-  if (stat(FLAGS_infer_model.c_str(), &sb) != 0 || !S_ISDIR(sb.st_mode)) {
-    throw std::invalid_argument(
-        "The inference model directory does not exist.");
-  }
-  if (FLAGS_with_labels && FLAGS_use_fake_data)
-    throw std::invalid_argument("Cannot use fake data for accuracy measuring.");
+  // struct stat sb;
+  // if (stat(FLAGS_infer_model.c_str(), &sb) != 0 || !S_ISDIR(sb.st_mode)) {
+  //   throw std::invalid_argument(
+  //       "The inference model directory does not exist.");
+  // }
 
   std::unique_ptr<DataReader> reader;
 
-  if (FLAGS_use_fake_data){
 
-  }
-  else{
-
-  }
-  
-  paddle::PaddleTensor input_fpattern = DefineInputData;
-  std::vector<string> trg_idx2word = reader.load_dict();
-
+  // paddle::PaddleTensor input_fpattern = DefineInputData;
 }
 
 }  // namespace paddle
