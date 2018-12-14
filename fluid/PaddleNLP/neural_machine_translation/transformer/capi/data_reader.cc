@@ -91,12 +91,16 @@ std::vector<int> DataReader::convert_to_ind(const std::string& sentence) {
   return indices;
 }
 
-std::vector<int> convert_to_sentence(const std::string& sentence) {
-  std::vector<int> indices;
+std::string convert_to_sentence(const std::vector<int>& indices) {
+  std::stringstream sentence;
+  int end_i=1; int beg_i=0; int unk_i=2;
 
-  // code that converts indices to string
+  sentence << ind_to_word[0];
+  for (int i = 1; i < indices.size(); i++) {
+    sentence << " " << ind_to_word[indices[i]];
+  }
 
-  return indices;
+  return sentence.str();
 }
 
 void DataReader::load_src_trg_ids(const std::vector<std::string>& test_lines) {
