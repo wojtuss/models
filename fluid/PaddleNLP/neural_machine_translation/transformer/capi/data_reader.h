@@ -28,13 +28,13 @@ struct DataReader {
                       int batch_size);
 
   // NextBatch()
+  std::string convert_to_sentence(const std::vector<int>& indices);
 
 private:
   void load_dict();
   void load_lines();
   void load_src_trg_ids(const std::vector<std::string>& test_lines);
   std::vector<int> convert_to_ind(const std::string& sentence);
-  std::string convert_to_sentence(const std::vector<int>& indices);
 
   const std::string vocab_path;
   const std::string test_translation_path;

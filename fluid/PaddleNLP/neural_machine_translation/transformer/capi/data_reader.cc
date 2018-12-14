@@ -14,6 +14,7 @@
 
 #include "data_reader.h"
 #include <algorithm>
+#include <sstream>
 
 namespace paddle {
 
@@ -91,15 +92,17 @@ std::vector<int> DataReader::convert_to_ind(const std::string& sentence) {
   return indices;
 }
 
-std::string convert_to_sentence(const std::vector<int>& indices) {
+std::string DataReader::convert_to_sentence(const std::vector<int>& indices) {
   std::stringstream sentence;
-  int end_i=1; int beg_i=0; int unk_i=2;
+  int end_i = word_to_ind[end];
+  int beg_i = word_to_ind[beg];
+  int unk_i = word_to_ind[unk];
 
-  sentence << ind_to_word[0];
-  for (int i = 1; i < indices.size(); i++) {
+  if (indices[0] != beg_i) sentence << ind_to_word[indices[0]];
+  for (int i = 1; i < indices.size() - 1; i++) {
     sentence << " " << ind_to_word[indices[i]];
   }
-
+  if (indices.back() != end_i) sentence << " " << ind_to_word[indices.back()];
   return sentence.str();
 }
 

@@ -13,8 +13,9 @@
 // limitations under the License.
 
 //#include "paddle/fluid/inference/analysis/analyzer.h"
-#include <chrono>
 #include <gflags/gflags.h>
+#include <chrono>
+#include <fstream>
 #include <iostream>
 #include <map>
 #include <random>
@@ -35,14 +36,18 @@ DEFINE_string(token_delimiter,
               "The delimiter used to split tokens in source or target "
               "sentences. For EN-DE BPE data we provided, use spaces as token "
               "delimiter.");
+DEFINE_string(output_file, "out_file.txt", "A file for the model output.");
 DEFINE_int32(batch_size,
              1,
              "The number of examples in one run for sequence generation.");
+DEFINE_int32(iterations, 1, "How many times to repeat run.");
+DEFINE_int32(skip_batch_num, 0, "How many minibatches to skip in statistics.");
 DEFINE_bool(use_mkldnn, false, "Use MKL-DNN.");
 DEFINE_bool(skip_passes, false, "Skip running passes.");
 DEFINE_bool(enable_graphviz,
             false,
             "Enable graphviz to get .dot files with data flow graphs.");
+DEFINE_bool(with_labels, true, "The infer model do handle data labels.");
 DEFINE_bool(one_file_params,
             false,
             "Parameters of the model are in one file 'params' and model in a "
@@ -74,9 +79,43 @@ public:
     return used_time_ms;
   }
 };
+
 }  // namespace
 
 namespace paddle {
+
+void PrintOutput(const std::vector<paddle::PaddleTensor>& output,
+                 const std::string& out_file,
+                 std::unique_ptr<DataReader>& reader) {
+  if (output.size() == 0)
+    throw std::invalid_argument("PrintOutput: output vector is empty.");
+
+  if (output[0].dtype != paddle::PaddleDType::INT64) {
+    throw std::invalid_argument("PrintOutput: output is of a wrong type.");
+  }
+
+  int64_t* ids_data = static_cast<int64_t*>(output[0].data.data());
+  auto ids_lod = output[0].lod;
+  auto ids_shape = output[0].shape;
+
+  std::ofstream ofile(out_file, std::fstream::out | std::fstream::app);
+  if (!ofile.is_open())
+    throw std::invalid_argument("PrintOutput: cannot open the output file");
+
+  for (int i = 0; i < ids_lod[0].size() - 1; ++i) {
+    auto start = ids_lod[0][i];
+    auto sub_start = ids_lod[1][start];
+    auto sub_end = ids_lod[1][start + 1];
+    auto data_start = ids_data + sub_start;
+    auto data_end = ids_data + sub_end;
+    std::vector<int> indices(data_start, data_end);
+    std::string sentence = reader->convert_to_sentence(indices);
+    ofile << sentence << std::endl;
+  }
+
+  ofile.close();
+}
+
 
 void InitializeReader(std::unique_ptr<DataReader>& reader) {
   reader.reset(new DataReader(
@@ -85,7 +124,7 @@ void InitializeReader(std::unique_ptr<DataReader>& reader) {
 
 // bool ReadNextBatch(PaddleTensor& input_data,
 //                    std::unique_ptr<DataReader>& reader) {
-  // bool flag = reader->NextBatch(static_cast<int*> input_data.data.data(), )
+// bool flag = reader->NextBatch(static_cast<int*> input_data.data.data(), )
 // }
 
 void PrintInfo() {
