@@ -83,7 +83,6 @@ public:
 }  // namespace
 
 namespace paddle {
-
 void PrintOutput(const std::vector<paddle::PaddleTensor>& output,
                  const std::string& out_file,
                  std::unique_ptr<DataReader>& reader) {
@@ -116,16 +115,30 @@ void PrintOutput(const std::vector<paddle::PaddleTensor>& output,
   ofile.close();
 }
 
-
 void InitializeReader(std::unique_ptr<DataReader>& reader) {
   reader.reset(new DataReader(
       FLAGS_all_vocab_fpath, FLAGS_test_file_pattern, FLAGS_batch_size));
 }
 
-// bool ReadNextBatch(PaddleTensor& input_data,
-//                    std::unique_ptr<DataReader>& reader) {
-// bool flag = reader->NextBatch(static_cast<int*> input_data.data.data(), )
-// }
+bool ReadNextBatch(PaddleTensor & src_word_tensor, PaddleTensor & src_pos_tensor, PaddleTensor & src_slf_attn_bias_tensor, PaddleTensor & trg_word_tensor, PaddleTensor & init_score_tensor, PaddleTensor & trg_src_attn_bias_tensor, std::unique_ptr<DataReader>& reader) {
+   
+   std::vector<std::vector<int64_t>> inst_data;// when I debug to here, the output has been int already
+   std::vector<std::vector<int64_t>> inst_pos;
+   std::vector<std::vector<float>> slf_attn_bias_data;
+   float * tile_slf_attn_bias_data;
+   int max_len = 0; 
+   //pad_batch_data
+	 bool DataReader::NextBatch(std::vector <std::vector<int64_t>>& inst_data, std::vector<std::vector<int64_t>> & inst_pos, std::vector <std::vector<float>> &slf_attn_bias_data, float* tile_slf_attn_bias_data, int & max_len, FLAGS_batch_size, attn_bias_flag);
+  
+   if (flag==false){
+     throw std::runtime_error("Less than batch size of lines left in the file, or other runtime errors");
+   }
+
+   //prepare_batch_input in python
+   
+   //# beamsearch_op must use tensors with lod
+   // init_score = to_lodtensor(    
+}
 
 void PrintInfo() {
   std::cout << std::endl
