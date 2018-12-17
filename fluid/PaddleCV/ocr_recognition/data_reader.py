@@ -104,7 +104,7 @@ class DataGenerator(object):
 
         return reader
 
-    def test_reader(self, img_root_dir, img_label_list):
+    def test_reader(self, img_root_dir, img_label_list, cycle):
         '''
         Reader interface for inference.
 
@@ -116,19 +116,22 @@ class DataGenerator(object):
         '''
 
         def reader():
-            for line in open(img_label_list):
-                # h, w, img_name, labels
-                items = line.split(' ')
+            while True:
+                for line in open(img_label_list):
+                    # h, w, img_name, labels
+                    items = line.split(' ')
 
-                label = [int(c) for c in items[-1].split(',')]
-                img = Image.open(os.path.join(img_root_dir, items[2])).convert(
-                    'L')
-                img = np.array(img) - 127.5
-                img = img[np.newaxis, ...]
-                if self.model == "crnn_ctc":
-                    yield img, label
-                else:
-                    yield img, [SOS] + label, label + [EOS]
+                    label = [int(c) for c in items[-1].split(',')]
+                    img = Image.open(os.path.join(img_root_dir, items[2])).convert(
+                        'L')
+                    img = np.array(img) - 127.5
+                    img = img[np.newaxis, ...]
+                    if self.model == "crnn_ctc":
+                        yield img, label
+                    else:
+                        yield img, [SOS] + label, label + [EOS]
+                if not cycle:
+                    break
 
         return reader
 
@@ -217,6 +220,7 @@ def train(batch_size,
 def test(batch_size=1,
          test_images_dir=None,
          test_list_file=None,
+         cycle=False,
          model="crnn_ctc"):
     generator = DataGenerator(model)
     if test_images_dir is None:
@@ -225,7 +229,7 @@ def test(batch_size=1,
     if test_list_file is None:
         test_list_file = path.join(data_dir, TEST_LIST_FILE_NAME)
     return paddle.batch(
-        generator.test_reader(test_images_dir, test_list_file), batch_size)
+        generator.test_reader(test_images_dir, test_list_file, cycle), batch_size)
 
 
 def inference(batch_size=1,
