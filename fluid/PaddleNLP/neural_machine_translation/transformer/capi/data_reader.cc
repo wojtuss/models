@@ -72,7 +72,7 @@ std::vector<T> flatten(const std::vector<std::vector<T>>& v) {
     return result;
 }
 
-bool DataReader::NextBatch(std::vector <std::vector<int64_t>>& inst_data, std::vector<std::vector<int64_t>> & inst_pos, std::vector <std::vector<float>> &slf_attn_bias_data, float* tile_slf_attn_bias_data, int & max_len, int batch_size, int attn_bias_flag){
+bool DataReader::NextBatch(std::vector <std::vector<int64_t>>& inst_data, std::vector<std::vector<int64_t>> & inst_pos, std::vector <std::vector<float>> &slf_attn_bias_data, std::vector<std::vector<std::vector<float>>> tile_slf_attn_bias_data, int & max_len, int batch_size, int attn_bias_flag){
   inst_data.clear();
   inst_pos.clear();
   slf_attn_bias_data.clear();

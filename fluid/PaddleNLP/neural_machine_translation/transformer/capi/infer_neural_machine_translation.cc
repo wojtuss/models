@@ -120,24 +120,72 @@ void InitializeReader(std::unique_ptr<DataReader>& reader) {
       FLAGS_all_vocab_fpath, FLAGS_test_file_pattern, FLAGS_batch_size));
 }
 
+template<typename T, typename I>
+void flatten(const vector<T>& vec, I inserter) {
+  for (typename vector<T>::const_iterator it = vec.begin(); it != vec.end(); ++it) {
+    flatten(*it, inserter);
+  }
+}
+template<typename T, typename I> 
+void flatten(const T& value, I inserter) {
+  *inserter = value;
+}
+/*
+int main() {
+   typedef vector<double> V1;
+   typedef vector<vector<double> > V2;
+   typedef vector<vector<vector<double> > > V3;
+
+   V3 vec3D(1, V2(2, V1(3, 0.0)));  // Create a 3-D vector
+   V1 vec1D;
+   flatten(vec3D, back_inserter(vec1D)); // Flatten the vector to 1-D
+
+   for (V1::const_iterator it = vec1D.begin(); it != vec1D.end(); ++it)
+     std::cout << *it << endl;
+}
+*/
 bool ReadNextBatch(PaddleTensor & src_word_tensor, PaddleTensor & src_pos_tensor, PaddleTensor & src_slf_attn_bias_tensor, PaddleTensor & trg_word_tensor, PaddleTensor & init_score_tensor, PaddleTensor & trg_src_attn_bias_tensor, std::unique_ptr<DataReader>& reader) {
    
-   std::vector<std::vector<int64_t>> inst_data;// when I debug to here, the output has been int already
+   std::vector<std::vector<int64_t>> inst_data;
    std::vector<std::vector<int64_t>> inst_pos;
    std::vector<std::vector<float>> slf_attn_bias_data;
    float * tile_slf_attn_bias_data;
    int max_len = 0; 
    //pad_batch_data
-	 bool DataReader::NextBatch(std::vector <std::vector<int64_t>>& inst_data, std::vector<std::vector<int64_t>> & inst_pos, std::vector <std::vector<float>> &slf_attn_bias_data, float* tile_slf_attn_bias_data, int & max_len, FLAGS_batch_size, attn_bias_flag);
+	 bool DataReader::NextBatch(std::vector <std::vector<int64_t>>& inst_data, std::vector<std::vector<int64_t>> & inst_pos, std::vector <std::vector<float>> &slf_attn_bias_data, std::vector<std::vector<std::vector<float>>> tile_slf_attn_bias_data, int & max_len, FLAGS_batch_size, attn_bias_flag);
   
    if (flag==false){
      throw std::runtime_error("Less than batch size of lines left in the file, or other runtime errors");
    }
 
-   //prepare_batch_input in python
+   src_word_tensor.name = "src_word";
+   src_pos_tensor.name = "src_pos";
+   src_slf_attn_bias_tensor.name = "src_slf_attn_bias"
+   trg_word_tensor.name = "trg_word";
+   init_score_tensor.name = "init_score";
+   trg_src_attn_bias_tensor.name = "trg_src_attn_bias";
+
+   src_word_tensor.shape = {FLAGS_batch_size*max_len, 1};
+   src_word_tensor.data.Resize( FLAGS_batch_size * max_len * sizeof(int64_t));
+   src_word_tensor.lod.clear();
+
+   src_pos_tensor.shape = {FLAGS_batch_size*max_len, 1};
+   src_pos_tensor.data.Rersize( FLAGS_batch_size*max_len * sizeof(int64_t));
+   src_pos_tensor.lod.clear();
+
+   trg_src_attn_bias_tensor.shape = {FLAGS_batch_size*max_len*n_head,1};
+   trg_src_attn_bias_tensor.data.Resize( FLAGS_batch*max_len*n_head*sizeof(float));
+   trg_src_attn_bias_tensor.lod.clear();
    
-   //# beamsearch_op must use tensors with lod
-   // init_score = to_lodtensor(    
+   int64_t* src_word_array = static_cast<int64_t>(src_word_tensor.data.data()); 
+   int64_t* src_pos_array = static_cast<int64_t>(src_pos_tensor.dara.dara());
+   float* trg_src_attn_bias_array = static_cast<float>(trg_src_attn_bias_tensor.data.data()); 
+   
+   flatten(inst_data, back_inserter(src_word_array));
+   flatten(inst_pos, back_inserter(src_pos_array));
+   flatten(tile_slf_attn_bias_data, back_inserter(trg_src_attn_bias_array));
+
+   
 }
 
 void PrintInfo() {
