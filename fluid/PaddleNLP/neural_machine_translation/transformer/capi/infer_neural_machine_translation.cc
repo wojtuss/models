@@ -1,18 +1,15 @@
 // Copyright (c) 2018 PaddlePaddle Authors. All Rights Reserved.
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 //     http://www.apache.org/licenses/LICENSE-2.0
-//
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//#include "paddle/fluid/inference/analysis/analyzer.h"
 #include <gflags/gflags.h>
 #include <chrono>
 #include <fstream>
@@ -22,8 +19,6 @@
 #include <string>
 #include "data_reader.h"
 #include "paddle/fluid/inference/paddle_inference_api.h"
-// Is this profiler needed, it is not provided however
-// #include "paddle/fluid/platform/profiler.h"
 #include "stats.h"
 
 DEFINE_string(infer_model, "", "Directory of the inference model.");
@@ -63,7 +58,6 @@ DEFINE_int32(
     "The maximum depth(translation length) for Beam Search algorithm.");
 
 namespace {
-
 class Timer {
 public:
   std::chrono::high_resolution_clock::time_point start;
@@ -72,16 +66,13 @@ public:
   void tic() { start = std::chrono::high_resolution_clock::now(); }
   double toc() {
     startu = std::chrono::high_resolution_clock::now();
-    std::chrono::duration<double> time_span =
-        std::chrono::duration_cast<std::chrono::duration<double>>(startu -
-                                                                  start);
+    std::chrono::duration<double> time_span = std::chrono::duration_cast<std::chrono::duration<double>>(startu - start);
     double used_time_ms = static_cast<double>(time_span.count()) * 1000.0;
     return used_time_ms;
   }
 };
 
 }  // namespace
-
 namespace paddle {
 void PrintOutput(const std::vector<paddle::PaddleTensor>& output,
                  const std::string& out_file,
@@ -111,7 +102,6 @@ void PrintOutput(const std::vector<paddle::PaddleTensor>& output,
     std::string sentence = reader->convert_to_sentence(indices);
     ofile << sentence << std::endl;
   }
-
   ofile.close();
 }
 
@@ -135,11 +125,9 @@ int main() {
    typedef vector<double> V1;
    typedef vector<vector<double> > V2;
    typedef vector<vector<vector<double> > > V3;
-
    V3 vec3D(1, V2(2, V1(3, 0.0)));  // Create a 3-D vector
    V1 vec1D;
    flatten(vec3D, back_inserter(vec1D)); // Flatten the vector to 1-D
-
    for (V1::const_iterator it = vec1D.begin(); it != vec1D.end(); ++it)
      std::cout << *it << endl;
 }
@@ -148,11 +136,11 @@ bool ReadNextBatch(PaddleTensor & src_word_tensor, PaddleTensor & src_pos_tensor
    
    std::vector<std::vector<int64_t>> inst_data;
    std::vector<std::vector<int64_t>> inst_pos;
-   std::vector<std::vector<float>> slf_attn_bias_data;
+   std::vector<std::vector< std::vector< float >> tile_slf_attn_bias_data;
    float * tile_slf_attn_bias_data;
    int max_len = 0; 
-   //pad_batch_data
-	 bool DataReader::NextBatch(std::vector <std::vector<int64_t>>& inst_data, std::vector<std::vector<int64_t>> & inst_pos, std::vector <std::vector<float>> &slf_attn_bias_data, std::vector<std::vector<std::vector<float>>> tile_slf_attn_bias_data, int & max_len, FLAGS_batch_size, attn_bias_flag);
+	 
+   reader->NextBatch(std::vector<std::vector<int64_t>>& inst_data, std::vector<std::vector<int64_t>> & inst_pos, std::vector<std::vector<std::vector<float>>> tile_slf_attn_bias_data, int & max_len, FLAGS_batch_size, attn_bias_flag);
   
    if (flag==false){
      throw std::runtime_error("Less than batch size of lines left in the file, or other runtime errors");
@@ -165,16 +153,16 @@ bool ReadNextBatch(PaddleTensor & src_word_tensor, PaddleTensor & src_pos_tensor
    init_score_tensor.name = "init_score";
    trg_src_attn_bias_tensor.name = "trg_src_attn_bias";
 
-   src_word_tensor.shape = {FLAGS_batch_size*max_len, 1};
-   src_word_tensor.data.Resize( FLAGS_batch_size * max_len * sizeof(int64_t));
+   src_word_tensor.shape = {FLAGS_batch_size, max_len, 1};
+   src_word_tensor.data.Resize( FLAGS_batch_sizie * max_len * sizeof(int64_t));
    src_word_tensor.lod.clear();
 
-   src_pos_tensor.shape = {FLAGS_batch_size*max_len, 1};
-   src_pos_tensor.data.Rersize( FLAGS_batch_size*max_len * sizeof(int64_t));
+   src_pos_tensor.shape = {FLAGS_batch_size, max_len, 1};
+   src_pos_tensor.data.Rersize( FLAGS_batch_size * max_len * sizeof(int64_t));
    src_pos_tensor.lod.clear();
 
-   trg_src_attn_bias_tensor.shape = {FLAGS_batch_size*max_len*n_head,1};
-   trg_src_attn_bias_tensor.data.Resize( FLAGS_batch*max_len*n_head*sizeof(float));
+   trg_src_attn_bias_tensor.shape = {FLAGS_batch_size, n_head, max_len, 1};
+   trg_src_attn_bias_tensor.data.Resize( FLAGS_batch * max_len * n_head * sizeof(float));
    trg_src_attn_bias_tensor.lod.clear();
    
    int64_t* src_word_array = static_cast<int64_t>(src_word_tensor.data.data()); 
@@ -185,7 +173,28 @@ bool ReadNextBatch(PaddleTensor & src_word_tensor, PaddleTensor & src_pos_tensor
    flatten(inst_pos, back_inserter(src_pos_array));
    flatten(tile_slf_attn_bias_data, back_inserter(trg_src_attn_bias_array));
 
-   
+   trg_word_tensor.shape = {FLAGS_batch_size, 1, 1};
+   trg_word_tensor.data.Resize(FLAGS_batchi_size * sizeof(int_64));
+   trg_word_tensor.lod.clear();
+   std::vector<size_t> tmplod;
+   for (int i = 0 ; i <= FLAGS_batch_size ; i++){
+      tmplod.push_back(i);
+   }
+   trg_word_tensor.lod.push_back(tmpload);
+   trg_word_tensor.lod.push_back(tmpload);
+   int64_t * trg_word_array = trg_word_tensor.data.data();
+   for (int i = 0 ; i < FLAGS_batch_size ; i++){
+     *trg_word_array ++ = reader.bos_idx;  
+   }
+ 
+   init_score_tensor.shape={FLAGS_batch_size,1};
+   init_score_tensor.data.Resize(FLAGS_batch_size*sizeof(float));
+   float * init_score_array = init_score_tensor.data.data();
+   for(int i = 0 ; i < FLAGS_batch_size ; i++){
+     *init_score_array++=0;
+   } 
+   init_score_tensor.lod.push_back(tmplod);
+   init_score_tensor.lod.push_back(tmplod); 
 }
 
 void PrintInfo() {
@@ -206,7 +215,6 @@ void PrintInfo() {
             << "Max out len : " << FLAGS_max_out_len << std::endl
             << "--------------------------------------" << std::endl;
 }
-
 
 void PrepareConfig(contrib::AnalysisConfig& config) {
   if (FLAGS_one_file_params) {

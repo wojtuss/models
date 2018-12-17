@@ -21,7 +21,6 @@
 #include <vector>
 
 namespace paddle {
-
 struct DataReader {
   explicit DataReader(std::string vocab_path,
                       std::string test_translation_path,
@@ -30,13 +29,15 @@ struct DataReader {
   std::string convert_to_sentence(const std::vector<int>& indices);
   bool NextBatch(std::vector< std::vector<int64_t> > test_lines,int batch_size);
 
+public:
+const int bos_idx=0;
+
 private:
   void load_dict();
   std::ifstream test_translation_file(test_translation_path); 
  // void load_lines();
   void load_src_trg_ids(const std::vector<std::string>& test_lines);
   std::vector<int> convert_to_ind(const std::string& sentence);
-
   const std::string vocab_path;
   const std::string test_translation_path;
   //const std::vector<std::string> test_lines;
@@ -56,5 +57,4 @@ private:
   // TODO(sfraczek): This seems to be irrelevant since we read only en (no de)
   std::vector<std::tuple<int, int, int>> sample_infos;
 };
-
 }  // namespace paddle
