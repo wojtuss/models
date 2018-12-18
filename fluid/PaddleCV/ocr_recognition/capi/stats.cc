@@ -89,9 +89,10 @@ void Stats::Gather(const std::vector<PaddleTensor>& output_slots,
     if (output_slots[1].dtype != paddle::PaddleDType::FLOAT32)
       throw std::invalid_argument(
           "Gather: total distance output is of a wrong type.");
-    float* total_distance = static_cast<float*>(output_slots[1].data.data());
-    total_distances.push_back(*total_distance);
-    // ss << ", total distance: " << *total_distance;
+    double total_distance = *static_cast<float*>(output_slots[1].data.data());
+    total_distance /= batch_size;
+    total_distances.push_back(total_distance);
+    // ss << ", total distance: " << total_distance;
     ss << ", avg distance: " << FindAverage(total_distances);
   }
 
@@ -103,10 +104,11 @@ void Stats::Gather(const std::vector<PaddleTensor>& output_slots,
     if (output_slots[2].dtype != paddle::PaddleDType::INT64)
       throw std::invalid_argument(
           "Gather: instance error count output is of a wrong type.");
-    int64_t* instance_err_count =
-        static_cast<int64_t*>(output_slots[2].data.data());
-    instance_errors.push_back(*instance_err_count);
-    // ss << ", instance error count: " << *instance_err_count;
+    double instance_err_count =
+        *static_cast<int64_t*>(output_slots[2].data.data());
+    instance_err_count /= batch_size;
+    instance_errors.push_back(instance_err_count);
+    // ss << ", instance error count: " << instance_err_count;
     ss << ", avg instance error: " << FindAverage(instance_errors);
   }
 
