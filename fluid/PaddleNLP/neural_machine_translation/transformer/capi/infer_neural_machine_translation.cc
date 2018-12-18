@@ -120,15 +120,13 @@ void InitializeReader(std::unique_ptr<DataReader>& reader) {
       FLAGS_all_vocab_fpath, FLAGS_test_file_pattern, FLAGS_batch_size));
 }
 
-template<typename T, typename I>
-void flatten(const vector<T>& vec, I inserter) {
-  for (typename vector<T>::const_iterator it = vec.begin(); it != vec.end(); ++it) {
-    flatten(*it, inserter);
+template<typename T>
+void copy_vector_of_vector(const vector<vector<T>> src_v_v, const T* dst_array_ptr) {
+  auto* dst_ptr =  dst_array_ptr;
+  for (auto v : src_v_v) {
+    std::copy(v.begin(), v.end(), dst_ptr);
+    dst_ptr += v.size();
   }
-}
-template<typename T, typename I> 
-void flatten(const T& value, I inserter) {
-  *inserter = value;
 }
 /*
 int main() {
@@ -145,47 +143,48 @@ int main() {
 }
 */
 bool ReadNextBatch(PaddleTensor & src_word_tensor, PaddleTensor & src_pos_tensor, PaddleTensor & src_slf_attn_bias_tensor, PaddleTensor & trg_word_tensor, PaddleTensor & init_score_tensor, PaddleTensor & trg_src_attn_bias_tensor, std::unique_ptr<DataReader>& reader) {
-   
-   std::vector<std::vector<int64_t>> inst_data;
-   std::vector<std::vector<int64_t>> inst_pos;
-   std::vector<std::vector<float>> slf_attn_bias_data;
+
+  std::vector<std::vector<int64_t>> inst_data;
+  std::vector<std::vector<int64_t>> inst_pos;
+  std::vector<std::vector<float>> slf_attn_bias_data;
    float * tile_slf_attn_bias_data;
-   int max_len = 0; 
+  int max_len = 0;
    //pad_batch_data
 	 bool DataReader::NextBatch(std::vector <std::vector<int64_t>>& inst_data, std::vector<std::vector<int64_t>> & inst_pos, std::vector <std::vector<float>> &slf_attn_bias_data, std::vector<std::vector<std::vector<float>>> tile_slf_attn_bias_data, int & max_len, FLAGS_batch_size, attn_bias_flag);
-  
+
    if (flag==false){
      throw std::runtime_error("Less than batch size of lines left in the file, or other runtime errors");
-   }
+  }
 
-   src_word_tensor.name = "src_word";
-   src_pos_tensor.name = "src_pos";
+  src_word_tensor.name = "src_word";
+  src_pos_tensor.name = "src_pos";
    src_slf_attn_bias_tensor.name = "src_slf_attn_bias"
    trg_word_tensor.name = "trg_word";
-   init_score_tensor.name = "init_score";
-   trg_src_attn_bias_tensor.name = "trg_src_attn_bias";
+  init_score_tensor.name = "init_score";
+  trg_src_attn_bias_tensor.name = "trg_src_attn_bias";
 
    src_word_tensor.shape = {FLAGS_batch_size*max_len, 1};
    src_word_tensor.data.Resize( FLAGS_batch_size * max_len * sizeof(int64_t));
-   src_word_tensor.lod.clear();
+  src_word_tensor.lod.clear();
 
    src_pos_tensor.shape = {FLAGS_batch_size*max_len, 1};
    src_pos_tensor.data.Rersize( FLAGS_batch_size*max_len * sizeof(int64_t));
-   src_pos_tensor.lod.clear();
+  src_pos_tensor.lod.clear();
 
    trg_src_attn_bias_tensor.shape = {FLAGS_batch_size*max_len*n_head,1};
    trg_src_attn_bias_tensor.data.Resize( FLAGS_batch*max_len*n_head*sizeof(float));
-   trg_src_attn_bias_tensor.lod.clear();
-   
-   int64_t* src_word_array = static_cast<int64_t>(src_word_tensor.data.data()); 
-   int64_t* src_pos_array = static_cast<int64_t>(src_pos_tensor.dara.dara());
-   float* trg_src_attn_bias_array = static_cast<float>(trg_src_attn_bias_tensor.data.data()); 
-   
-   flatten(inst_data, back_inserter(src_word_array));
-   flatten(inst_pos, back_inserter(src_pos_array));
-   flatten(tile_slf_attn_bias_data, back_inserter(trg_src_attn_bias_array));
+  trg_src_attn_bias_tensor.lod.clear();
 
-   
+  int64_t* src_word_array = static_cast<int64_t>(src_word_tensor.data.data());
+  int64_t* src_pos_array = static_cast<int64_t>(src_pos_tensor.dara.dara());
+  float* trg_src_attn_bias_array =
+      static_cast<float>(trg_src_attn_bias_tensor.data.data());
+
+  copy_vector_of_vector(inst_data, src_word_array);
+  copy_vector_of_vector(inst_data, src_pos_array);
+  for (auto v_v_i : tile_slf_attn_bias_data) {
+    copy_vector_of_vector(v_v_i, trg_src_attn_bias_array);
+  }
 }
 
 void PrintInfo() {
