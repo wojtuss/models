@@ -217,7 +217,6 @@ bool ReadNextBatch(PaddleTensor& src_word_tensor,
           trg_src_attn_bias_array + i * reader->n_head * max_len + j * max_len);
     }
   }
-  std::cout<<"You passed the tile process"<<std::endl;
 
   copy_vector_of_vector(inst_data, src_word_array);
   copy_vector_of_vector(inst_pos, src_pos_array);
