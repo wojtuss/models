@@ -117,10 +117,11 @@ void InitializeReader(std::unique_ptr<DataReader>& reader) {
 template <typename T>
 void copy_vector_of_vector(const std::vector<std::vector<T>>& src_v_v,
                            T* dst_array_ptr) {
-  auto* dst_ptr = dst_array_ptr;
-  for (auto v : src_v_v) {
-    std::copy(v.begin(), v.end(), dst_ptr);
-    dst_ptr += v.size();
+  size_t size1 = src_v_v.size();
+  size_t acc_i = 0;
+  for (size_t i = 0 ; i < size1 ; i++ ) { 
+    std::copy(src_v_v[i].begin(), src_v_v[i].end(), dst_array_ptr + acc_i);
+    acc_i += src_v_v[i].size();   
   }
 }
 /*
@@ -174,9 +175,9 @@ bool ReadNextBatch(PaddleTensor& src_word_tensor,
   src_pos_tensor.data.Resize(FLAGS_batch_size * max_len * sizeof(int64_t));
   src_pos_tensor.lod.clear();
 
-  trg_src_attn_bias_tensor.shape = {FLAGS_batch_size, FLAGS_n_head, max_len, 1};
+  trg_src_attn_bias_tensor.shape = {FLAGS_batch_size, FLAGS_n_head, max_len, max_len};
   trg_src_attn_bias_tensor.data.Resize(FLAGS_batch_size * max_len *
-                                       FLAGS_n_head * sizeof(float));
+                                       FLAGS_n_head * max_len * sizeof(float));
   trg_src_attn_bias_tensor.lod.clear();
 
   trg_word_tensor.shape = {FLAGS_batch_size, 1, 1};
@@ -216,6 +217,7 @@ bool ReadNextBatch(PaddleTensor& src_word_tensor,
           trg_src_attn_bias_array + i * reader->n_head * max_len + j * max_len);
     }
   }
+  std::cout<<"You passed the tile process"<<std::endl;
 
   copy_vector_of_vector(inst_data, src_word_array);
   copy_vector_of_vector(inst_pos, src_pos_array);
