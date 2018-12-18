@@ -31,7 +31,7 @@ struct DataReader {
   bool NextBatch(std::vector<std::vector<int64_t>>& inst_data,
                  std::vector<std::vector<int64_t>>& inst_pos,
                  std::vector<std::vector<float>>& slf_attn_bias_data,
-                 int& max_len,
+                 size_t & max_len,
                  int batch_size);
 
   const int bos_idx = 0;

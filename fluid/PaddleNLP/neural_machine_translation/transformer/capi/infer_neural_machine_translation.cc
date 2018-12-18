@@ -115,8 +115,8 @@ void InitializeReader(std::unique_ptr<DataReader>& reader) {
 }
 
 template <typename T>
-void copy_vector_of_vector(const std::vector<std::vector<T>> src_v_v,
-                           const T* dst_array_ptr) {
+void copy_vector_of_vector(std::vector<std::vector<T>> src_v_v,
+                           T* dst_array_ptr) {
   auto* dst_ptr = dst_array_ptr;
   for (auto v : src_v_v) {
     std::copy(v.begin(), v.end(), dst_ptr);
@@ -145,16 +145,16 @@ bool ReadNextBatch(PaddleTensor& src_word_tensor,
   std::vector<std::vector<int64_t>> inst_data;
   std::vector<std::vector<int64_t>> inst_pos;
   std::vector<std::vector<float>> slf_attn_bias_data;
-  int max_len = 0;
+  size_t max_length = 0;
 
   bool read_full_batch = reader->NextBatch(inst_data,
                                            inst_pos,
                                            slf_attn_bias_data,
-                                           max_len,
+                                           max_length,
                                            FLAGS_batch_size);
 
   // pad_batch_data
-
+  int max_len=(int)max_length;
   if (read_full_batch == false) {
     return false;  // we didn't read full batch. Stop or throw.
   }
@@ -206,8 +206,6 @@ bool ReadNextBatch(PaddleTensor& src_word_tensor,
   float* trg_src_attn_bias_array =
       static_cast<float*>(trg_src_attn_bias_tensor.data.data());
 
-  copy_vector_of_vector(inst_data, src_word_array);
-  copy_vector_of_vector(inst_data, src_pos_array);
 
   // tile, batch_size*n_head*max_length*max_length
   for (int i = 0; i < FLAGS_batch_size; i++) {
@@ -218,6 +216,9 @@ bool ReadNextBatch(PaddleTensor& src_word_tensor,
           trg_src_attn_bias_array + i * reader->n_head * max_len + j * max_len);
     }
   }
+
+  copy_vector_of_vector(inst_data, src_word_array);
+  copy_vector_of_vector(inst_pos, src_pos_array);
 }
 
 void PrintInfo() {

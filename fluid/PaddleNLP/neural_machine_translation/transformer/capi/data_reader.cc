@@ -48,15 +48,15 @@ DataReader::DataReader(std::string vocab_path,
       batch_size(batch_size) {
   test_translation_file.open(test_translation_path);
   if (!test_translation_file.is_open()) {
-    stringstream ss;
+    std::stringstream ss;
     ss << "Cannot open test translation file: " << this->test_translation_path
        << "\n";
     throw std::runtime_error(ss.str());
   }
   load_dict();
-  bos_idx = word_to_ind[beg];
-  eos_idx = word_to_ind[end];
-  unk_idx = word_to_ind[unk];
+  //bos_idx = word_to_ind[beg];
+  //eos_idx = word_to_ind[end];
+  //unk_idx = word_to_ind[unk];
 }
 
 void DataReader::load_dict() {
@@ -74,7 +74,7 @@ bool DataReader::NextBatch(
     std::vector<std::vector<int64_t>>& inst_data,
     std::vector<std::vector<int64_t>>& inst_pos,
     std::vector<std::vector<float>>& slf_attn_bias_data,
-    int& max_length,
+    size_t& max_length,
     int batch_size) {
   //clear vectors
   inst_data.clear();
@@ -91,8 +91,8 @@ bool DataReader::NextBatch(
   // Set slf_attn_bias_data with zeros.
   std::string line;
   std::vector<std::string> pieces;
-  int max_length = 0;
-  for (int i = 0; i < batch_size, i++) {
+  max_length = 0;
+  for (int i = 0; i < batch_size; i++) {
     if (!std::getline(test_translation_file, line)) {
       return false;  // consider the situation there is not enough lines for
                      // last batch
@@ -105,7 +105,7 @@ bool DataReader::NextBatch(
       max_length = sentence_indices.size();
     }
     inst_pos[i].resize(sentence_indices.size());
-    for (auto j = 0; j < sentence_indices.size(); j++) {
+    for (size_t j = 0; j < sentence_indices.size(); j++) {
       inst_pos[i][j] = j;
     }
     slf_attn_bias_data[i].resize(sentence_indices.size(), 0e0);
@@ -144,15 +144,14 @@ std::vector<int> DataReader::convert_to_ind(const std::string& sentence) {
   return indices;
 }
 
-
 std::string DataReader::convert_to_sentence(const std::vector<int>& indices) {
   std::stringstream sentence;
   int end_i = word_to_ind[end];
   int beg_i = word_to_ind[beg];
-  int unk_i = word_to_ind[unk];
+  //int unk_i = word_to_ind[unk];
 
   if (indices[0] != beg_i) sentence << ind_to_word[indices[0]];
-  for (int i = 1; i < indices.size() - 1; i++) {
+  for (size_t i = 1; i < indices.size() - 1; i++) {
     sentence << " " << ind_to_word[indices[i]];
   }
   if (indices.back() != end_i) sentence << " " << ind_to_word[indices.back()];
