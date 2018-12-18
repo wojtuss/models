@@ -111,8 +111,7 @@ void PrintOutput(const std::vector<paddle::PaddleTensor>& output,
 void InitializeReader(std::unique_ptr<DataReader>& reader) {
   reader.reset(new DataReader(FLAGS_all_vocab_fpath,
                               FLAGS_test_file_pattern,
-                              FLAGS_batch_size,
-                              FLAGS_n_head));
+                              FLAGS_batch_size));
 }
 
 template <typename T>
@@ -146,14 +145,11 @@ bool ReadNextBatch(PaddleTensor& src_word_tensor,
   std::vector<std::vector<int64_t>> inst_data;
   std::vector<std::vector<int64_t>> inst_pos;
   std::vector<std::vector<float>> slf_attn_bias_data;
-  std::vector<std::vector<std::vector<std::vector<float>>>>
-      tile_slf_attn_bias_data;
   int max_len = 0;
 
   bool read_full_batch = reader->NextBatch(inst_data,
                                            inst_pos,
                                            slf_attn_bias_data,
-                                           tile_slf_attn_bias_data,
                                            max_len,
                                            FLAGS_batch_size);
 
@@ -214,8 +210,8 @@ bool ReadNextBatch(PaddleTensor& src_word_tensor,
   copy_vector_of_vector(inst_data, src_pos_array);
 
   // tile, batch_size*n_head*max_length*max_length
-  for (int i = 0; i < batch_size; i++) {
-    for (int j = 0; j < reader->n_head * reader->max_len; j++) {
+  for (int i = 0; i < FLAGS_batch_size; i++) {
+    for (int j = 0; j < reader->n_head * max_len; j++) {
       std::copy(
           inst_data[i].begin(),
           inst_data[i].end(),

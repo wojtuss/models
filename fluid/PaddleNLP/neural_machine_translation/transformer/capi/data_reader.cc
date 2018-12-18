@@ -42,12 +42,10 @@ static void split(const std::string& str,
 
 DataReader::DataReader(std::string vocab_path,
                        std::string test_translation_path,
-                       int batch_size,
-                       int n_head)
+                       int batch_size)
     : vocab_path(std::move(vocab_path)),
       test_translation_path(std::move(test_translation_path)),
-      batch_size(batch_size),
-      n_head(n_head) {
+      batch_size(batch_size) {
   test_translation_file.open(test_translation_path);
   if (!test_translation_file.is_open()) {
     stringstream ss;
@@ -75,7 +73,7 @@ void DataReader::load_dict() {
 bool DataReader::NextBatch(
     std::vector<std::vector<int64_t>>& inst_data,
     std::vector<std::vector<int64_t>>& inst_pos,
-    std::vector<std::vector<float>>& slf_attn_bias_data
+    std::vector<std::vector<float>>& slf_attn_bias_data,
     int& max_length,
     int batch_size) {
   //clear vectors
@@ -119,13 +117,13 @@ bool DataReader::NextBatch(
     inst_pos[i].resize(max_length, 0);
     slf_attn_bias_data[i].resize(max_length, -1e9);
   }
-  // tile, batch_size*n_head*max_length*max_length
-   typedef vector<vector<float> > V2;
-   typedef vector<vector<vector<float> > > V3;
-   tile_slf_attn_bias_data.resize(batch_size);
-   for (int i = 0; i < batch_size; i++) {
-     tile_slf_attn_bias_data[i] = V3(n_head, V2(max_length, inst_data[i]));
-   }
+//  // tile, batch_size*n_head*max_length*max_length
+//   typedef vector<vector<float> > V2;
+//   typedef vector<vector<vector<float> > > V3;
+//   tile_slf_attn_bias_data.resize(batch_size);
+//   for (int i = 0; i < batch_size; i++) {
+//     tile_slf_attn_bias_data[i] = V3(n_head, V2(max_length, inst_data[i]));
+//   }
    return true;
 }
 

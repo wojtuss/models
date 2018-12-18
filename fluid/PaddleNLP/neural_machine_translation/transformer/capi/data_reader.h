@@ -24,8 +24,7 @@ namespace paddle {
 struct DataReader {
   explicit DataReader(std::string vocab_path,
                       std::string test_translation_path,
-                      int batch_size,
-                      int n_head);
+                      int batch_size);
 
   std::string convert_to_sentence(const std::vector<int>& indices);
 
@@ -33,12 +32,13 @@ struct DataReader {
                  std::vector<std::vector<int64_t>>& inst_pos,
                  std::vector<std::vector<float>>& slf_attn_bias_data,
                  int& max_len,
-                 int batch_size,
-                 int n_head);
+                 int batch_size);
 
   const int bos_idx = 0;
   const int eos_idx = 1;
   const int unk_idx = 2;
+  const int n_head = 8;
+
 private:
   void load_dict();
   std::ifstream test_translation_file;
@@ -51,7 +51,6 @@ private:
   std::string beg{"<s>"};
   std::string end{"<e>"};
   std::string unk{"<unk>"};
-  const int n_head = 8;
   const char sentence_sep{'\t'};
   const char word_sep{' '};
   std::map<std::string, int> word_to_ind;
