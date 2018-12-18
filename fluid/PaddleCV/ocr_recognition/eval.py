@@ -96,7 +96,7 @@ def evaluate(args):
 
     avg_distance, avg_seq_error = evaluator.eval(exe)
     print("Read %d samples; avg_distance: %s; avg_seq_error: %s" %
-          (count, avg_distance, avg_seq_error))
+          (count, avg_distance[-1], avg_seq_error[-1]))
 
     latencies = batch_times[args.skip_batch_num:]
     latency_avg = np.average(latencies)
@@ -106,10 +106,12 @@ def evaluate(args):
     fps_pc99 = np.percentile(fpses, 1)
 
     # Benchmark output
-    print('\nTotal examples (incl. warm-up): %d' % (args.iterations * args.batch_size))
+    print('\nTotal examples (incl. warm-up): %d' %
+          (args.iterations * args.batch_size))
     print('average latency: %.5f s, 99pc latency: %.5f s' % (latency_avg,
                                                              latency_pc99))
     print('average fps: %.5f, fps for 99pc latency: %.5f' % (fps_avg, fps_pc99))
+
 
 def main():
     args = parser.parse_args()
