@@ -166,11 +166,11 @@ bool ReadNextBatch(PaddleTensor& src_word_tensor,
   src_pos_tensor.data.Resize(FLAGS_batch_size * max_len * sizeof(int64_t));
   src_pos_tensor.lod.clear();
 
-  trg_src_attn_bias_tensor.shape = {
-      FLAGS_batch_size, FLAGS_n_head, max_len, max_len};
-  trg_src_attn_bias_tensor.data.Resize(FLAGS_batch_size * max_len *
-                                       FLAGS_n_head * max_len * sizeof(float));
-  trg_src_attn_bias_tensor.lod.clear();
+ // trg_src_attn_bias_tensor.shape = {
+ //     FLAGS_batch_size, FLAGS_n_head, max_len, max_len};
+ // trg_src_attn_bias_tensor.data.Resize(FLAGS_batch_size * max_len *
+ //                                      FLAGS_n_head * max_len * sizeof(float));
+ // trg_src_attn_bias_tensor.lod.clear();
 
   src_slf_attn_bias_tensor.shape = {FLAGS_batch_size, FLAGS_n_head, max_len, max_len};
   src_slf_attn_bias_tensor.data.Resize(FLAGS_batch_size * max_len *
@@ -203,17 +203,17 @@ bool ReadNextBatch(PaddleTensor& src_word_tensor,
   int64_t* src_pos_array = static_cast<int64_t*>(src_pos_tensor.data.data());
   
   //TODO lidaniqng, seems trg_src_attn_bias_tensor doesnt need to be initialized
-  float* trg_src_attn_bias_array =
-      static_cast<float*>(trg_src_attn_bias_tensor.data.data());
+  //float* trg_src_attn_bias_array =
+  //    static_cast<float*>(trg_src_attn_bias_tensor.data.data());
   // tile, batch_size*n_head*max_length*max_length
-  for (int i = 0; i < FLAGS_batch_size; i++) {
-    for (int j = 0; j < reader->n_head * max_len; j++) {
-      std::copy(
-          inst_data[i].begin(),
-          inst_data[i].end(),
-          trg_src_attn_bias_array + i * reader->n_head * max_len + j * max_len);
-    }
-  }
+  //for (int i = 0; i < FLAGS_batch_size; i++) {
+  //  for (int j = 0; j < reader->n_head * max_len; j++) {
+  //    std::copy(
+  //        inst_data[i].begin(),
+  //        inst_data[i].end(),
+  //       trg_src_attn_bias_array + i * reader->n_head * max_len + j * max_len);
+  //  }
+  //}
   //TODO END
   
   float* src_slf_attn_bias_array =
