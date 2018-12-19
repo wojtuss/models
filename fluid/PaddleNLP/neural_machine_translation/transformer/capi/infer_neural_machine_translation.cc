@@ -117,11 +117,10 @@ void InitializeReader(std::unique_ptr<DataReader>& reader) {
 template <typename T>
 void copy_vector_of_vector(const std::vector<std::vector<T>>& src_v_v,
                            T* dst_array_ptr) {
-  size_t size1 = src_v_v.size();
-  size_t acc_i = 0;
-  for (size_t i = 0 ; i < size1 ; i++ ) { 
-    std::copy(src_v_v[i].begin(), src_v_v[i].end(), dst_array_ptr + acc_i);
-    acc_i += src_v_v[i].size();   
+  auto* dst_ptr = dst_array_ptr;
+  for (auto v: src_v_v ) { 
+    std::copy(v.begin(), v.end(), dst_ptr);
+    dst_ptr += v.size();
   }
 }
 /*
@@ -239,7 +238,8 @@ void PrintInfo() {
             << "Paddle num threads : " << FLAGS_paddle_num_threads << std::endl
             << "Beam size : " << FLAGS_beam_size << std::endl
             << "Max out len : " << FLAGS_max_out_len << std::endl
-            << "--------------------------------------" << std::endl;
+            << "Output file: " << FLAGS_output_file << std::endl
+             << "--------------------------------------" << std::endl;
 }
 
 void PrepareConfig(contrib::AnalysisConfig& config) {
