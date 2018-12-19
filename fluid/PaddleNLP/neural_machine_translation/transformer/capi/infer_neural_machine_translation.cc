@@ -105,9 +105,8 @@ void PrintOutput(const std::vector<paddle::PaddleTensor>& output,
 }
 
 void InitializeReader(std::unique_ptr<DataReader>& reader) {
-  reader.reset(new DataReader(FLAGS_all_vocab_fpath,
-                              FLAGS_test_file_path,
-                              FLAGS_batch_size));
+  reader.reset(new DataReader(
+      FLAGS_all_vocab_fpath, FLAGS_test_file_path, FLAGS_batch_size));
 }
 
 template <typename T>
@@ -143,14 +142,11 @@ bool ReadNextBatch(PaddleTensor& src_word_tensor,
   std::vector<std::vector<float>> slf_attn_bias_data;
   size_t max_length = 0;
 
-  bool read_full_batch = reader->NextBatch(inst_data,
-                                           inst_pos,
-                                           slf_attn_bias_data,
-                                           max_length,
-                                           FLAGS_batch_size);
+  bool read_full_batch = reader->NextBatch(
+      inst_data, inst_pos, slf_attn_bias_data, max_length, FLAGS_batch_size);
 
   // pad_batch_data
-  int max_len=(int)max_length;
+  int max_len = (int)max_length;
   if (read_full_batch == false) {
     return false;  // we didn't read full batch. Stop or throw.
   }
@@ -170,7 +166,8 @@ bool ReadNextBatch(PaddleTensor& src_word_tensor,
   src_pos_tensor.data.Resize(FLAGS_batch_size * max_len * sizeof(int64_t));
   src_pos_tensor.lod.clear();
 
-  trg_src_attn_bias_tensor.shape = {FLAGS_batch_size, FLAGS_n_head, max_len, max_len};
+  trg_src_attn_bias_tensor.shape = {
+      FLAGS_batch_size, FLAGS_n_head, max_len, max_len};
   trg_src_attn_bias_tensor.data.Resize(FLAGS_batch_size * max_len *
                                        FLAGS_n_head * max_len * sizeof(float));
   trg_src_attn_bias_tensor.lod.clear();
@@ -307,10 +304,48 @@ void Main() {
   if (FLAGS_batch_size <= 0)
     throw std::invalid_argument(
         "The batch_size option is less than or equal to 0.");
+
+  if (FLAGS_iterations <= 0)
+    throw std::invalid_argument(
+        "The iterations option is less than or equal to 0.");
+
+  if (FLAGS_skip_batch_num < 0)
+    throw std::invalid_argument("The skip_batch_num option is less than 0.");
+
+  if (FLAGS_paddle_num_threads <= 0)
+    throw std::invalid_argument(
+        "The paddle_num_threads option is less than or equal to 0.");
+
+  if (FLAGS_beam_size <= 0)
+    throw std::invalid_argument(
+        "The beam_size option is less than or equal to 0.");
+
+  if (FLAGS_n_head <= 0)
+    throw std::invalid_argument(
+        "The n_head option is less than or equal to 0.");
+
+  if (FLAGS_max_out_len <= 0)
+    throw std::invalid_argument(
+        "The max_out_len option is less than or equal to 0.");
+
+
   struct stat sb;
   if (stat(FLAGS_infer_model.c_str(), &sb) != 0 || !S_ISDIR(sb.st_mode)) {
     throw std::invalid_argument(
         "The inference model directory does not exist.");
+  }
+
+  if (stat(FLAGS_all_vocab_fpath.c_str(), &sb) != 0 || !S_ISREG(sb.st_mode)) {
+    throw std::invalid_argument("The vocabulary file does not exist.");
+  }
+
+  if (stat(FLAGS_test_file_path.c_str(), &sb) != 0 || !S_ISREG(sb.st_mode)) {
+    throw std::invalid_argument("The test data file does not exist.");
+  }
+
+  if (stat(FLAGS_output_file.c_str(), &sb) == 0 && S_ISREG(sb.st_mode)) {
+    std::cout << "Warning: The output file " + FLAGS_output_file +
+                     " already exists and it will be used in append mode!";
   }
 
   std::unique_ptr<DataReader> reader;
