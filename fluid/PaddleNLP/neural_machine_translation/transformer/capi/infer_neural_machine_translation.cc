@@ -216,6 +216,7 @@ bool ReadNextBatch(PaddleTensor& src_word_tensor,
           inst_data[i].end(),
           trg_src_attn_bias_array + i * reader->n_head * max_len + j * max_len);
     }
+  }
   //TODO END
   
   float* src_slf_attn_bias_array =
@@ -233,7 +234,7 @@ bool ReadNextBatch(PaddleTensor& src_word_tensor,
   copy_vector_of_vector(inst_data, src_word_array);
   copy_vector_of_vector(inst_pos, src_pos_array);
   return true;
-}}
+}
 
 
 #define PRINT_OPTION(a)                               \
