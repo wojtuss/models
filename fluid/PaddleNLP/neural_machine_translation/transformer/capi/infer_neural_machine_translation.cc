@@ -115,7 +115,7 @@ void InitializeReader(std::unique_ptr<DataReader>& reader) {
 }
 
 template <typename T>
-void copy_vector_of_vector(std::vector<std::vector<T>> src_v_v,
+void copy_vector_of_vector(const std::vector<std::vector<T>>& src_v_v,
                            T* dst_array_ptr) {
   auto* dst_ptr = dst_array_ptr;
   for (auto v : src_v_v) {
@@ -219,6 +219,7 @@ bool ReadNextBatch(PaddleTensor& src_word_tensor,
 
   copy_vector_of_vector(inst_data, src_word_array);
   copy_vector_of_vector(inst_pos, src_pos_array);
+  return true;
 }
 
 void PrintInfo() {

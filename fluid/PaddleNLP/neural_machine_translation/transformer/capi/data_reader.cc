@@ -54,9 +54,9 @@ DataReader::DataReader(std::string vocab_path,
     throw std::runtime_error(ss.str());
   }
   load_dict();
-  //bos_idx = word_to_ind[beg];
-  //eos_idx = word_to_ind[end];
-  //unk_idx = word_to_ind[unk];
+  // bos_idx = word_to_ind[beg];
+  // eos_idx = word_to_ind[end];
+  // unk_idx = word_to_ind[unk];
 }
 
 void DataReader::load_dict() {
@@ -70,13 +70,12 @@ void DataReader::load_dict() {
   }
 }
 
-bool DataReader::NextBatch(
-    std::vector<std::vector<int64_t>>& inst_data,
-    std::vector<std::vector<int64_t>>& inst_pos,
-    std::vector<std::vector<float>>& slf_attn_bias_data,
-    size_t& max_length,
-    int batch_size) {
-  //clear vectors
+bool DataReader::NextBatch(std::vector<std::vector<int64_t>>& inst_data,
+                           std::vector<std::vector<int64_t>>& inst_pos,
+                           std::vector<std::vector<float>>& slf_attn_bias_data,
+                           size_t& max_length,
+                           int batch_size) {
+  // clear vectors
   inst_data.clear();
   inst_pos.clear();
   slf_attn_bias_data.clear();
@@ -100,7 +99,7 @@ bool DataReader::NextBatch(
     pieces.clear();
     split(line, sentence_sep, &pieces);
     std::vector<int64_t> sentence_indices = convert_to_ind(pieces[0]);
-    inst_data.push_back(sentence_indices);
+    inst_data[i] = sentence_indices;
     if (sentence_indices.size() > max_length) {
       max_length = sentence_indices.size();
     }
@@ -111,20 +110,21 @@ bool DataReader::NextBatch(
     slf_attn_bias_data[i].resize(sentence_indices.size(), 0e0);
   }
 
-  // padding for inst_data with eos_idx, for inst_pos with 0, and for slf_attn_bias with -1e9
+  // padding for inst_data with eos_idx, for inst_pos with 0, and for
+  // slf_attn_bias with -1e9
   for (int i = 0; i < batch_size; i++) {
     inst_data[i].resize(max_length, eos_idx);
     inst_pos[i].resize(max_length, 0);
     slf_attn_bias_data[i].resize(max_length, -1e9);
   }
-//  // tile, batch_size*n_head*max_length*max_length
-//   typedef vector<vector<float> > V2;
-//   typedef vector<vector<vector<float> > > V3;
-//   tile_slf_attn_bias_data.resize(batch_size);
-//   for (int i = 0; i < batch_size; i++) {
-//     tile_slf_attn_bias_data[i] = V3(n_head, V2(max_length, inst_data[i]));
-//   }
-   return true;
+  //  // tile, batch_size*n_head*max_length*max_length
+  //   typedef vector<vector<float> > V2;
+  //   typedef vector<vector<vector<float> > > V3;
+  //   tile_slf_attn_bias_data.resize(batch_size);
+  //   for (int i = 0; i < batch_size; i++) {
+  //     tile_slf_attn_bias_data[i] = V3(n_head, V2(max_length, inst_data[i]));
+  //   }
+  return true;
 }
 
 std::vector<int64_t> DataReader::convert_to_ind(const std::string& sentence) {
@@ -144,11 +144,12 @@ std::vector<int64_t> DataReader::convert_to_ind(const std::string& sentence) {
   return indices;
 }
 
-std::string DataReader::convert_to_sentence(const std::vector<int64_t>& indices) {
+std::string DataReader::convert_to_sentence(
+    const std::vector<int64_t>& indices) {
   std::stringstream sentence;
   int end_i = word_to_ind[end];
   int beg_i = word_to_ind[beg];
-  //int unk_i = word_to_ind[unk];
+  // int unk_i = word_to_ind[unk];
 
   if (indices[0] != beg_i) sentence << ind_to_word[indices[0]];
   for (size_t i = 1; i < indices.size() - 1; i++) {
