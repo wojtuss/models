@@ -46,7 +46,7 @@ DataReader::DataReader(std::string vocab_path,
     : vocab_path(std::move(vocab_path)),
       test_translation_path(std::move(test_translation_path)),
       batch_size(batch_size) {
-  test_translation_file.open(test_translation_path);
+  test_translation_file.open(this->test_translation_path, std::ifstream::in);
   if (!test_translation_file.is_open()) {
     std::stringstream ss;
     ss << "Cannot open test translation file: " << this->test_translation_path
