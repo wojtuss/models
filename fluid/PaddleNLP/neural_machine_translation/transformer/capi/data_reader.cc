@@ -64,7 +64,7 @@ void DataReader::load_dict() {
   std::string line;
   word_to_ind.clear();
   ind_to_word.clear();
-  for (int i = 0; std::getline(vocab_file, line); i++) {
+  for (int64_t i = 0; std::getline(vocab_file, line); i++) {
     word_to_ind[line] = i;
     ind_to_word[i] = std::move(line);
   }
@@ -127,9 +127,9 @@ bool DataReader::NextBatch(
    return true;
 }
 
-std::vector<int> DataReader::convert_to_ind(const std::string& sentence) {
+std::vector<int64_t> DataReader::convert_to_ind(const std::string& sentence) {
   std::vector<std::string> pieces;
-  std::vector<int> indices;
+  std::vector<int64_t> indices;
   split(sentence, word_sep, &pieces);
   // indices.push_back(word_to_ind[beg]);
   for (auto& word : pieces) {
@@ -144,7 +144,7 @@ std::vector<int> DataReader::convert_to_ind(const std::string& sentence) {
   return indices;
 }
 
-std::string DataReader::convert_to_sentence(const std::vector<int>& indices) {
+std::string DataReader::convert_to_sentence(const std::vector<int64_t>& indices) {
   std::stringstream sentence;
   int end_i = word_to_ind[end];
   int beg_i = word_to_ind[beg];

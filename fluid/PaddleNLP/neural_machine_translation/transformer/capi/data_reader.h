@@ -26,7 +26,7 @@ struct DataReader {
                       std::string test_translation_path,
                       int batch_size);
 
-  std::string convert_to_sentence(const std::vector<int>& indices);
+  std::string convert_to_sentence(const std::vector<int64_t>& indices);
 
   bool NextBatch(std::vector<std::vector<int64_t>>& inst_data,
                  std::vector<std::vector<int64_t>>& inst_pos,
@@ -34,9 +34,9 @@ struct DataReader {
                  size_t & max_len,
                  int batch_size);
 
-  const int bos_idx = 0;
-  const int eos_idx = 1;
-  const int unk_idx = 2;
+  const int64_t bos_idx = 0;
+  const int64_t eos_idx = 1;
+  const int64_t unk_idx = 2;
   const int n_head = 8;
 
 private:
@@ -44,7 +44,7 @@ private:
   std::ifstream test_translation_file;
  // void load_lines();
   void load_src_trg_ids(const std::vector<std::string>& test_lines);
-  std::vector<int> convert_to_ind(const std::string& sentence);
+  std::vector<int64_t> convert_to_ind(const std::string& sentence);
   const std::string vocab_path;
   const std::string test_translation_path;
   const int batch_size;
@@ -53,9 +53,9 @@ private:
   std::string unk{"<unk>"};
   const char sentence_sep{'\t'};
   const char word_sep{' '};
-  std::map<std::string, int> word_to_ind;
-  std::map<int, std::string> ind_to_word;
-  std::vector<std::vector<int>> src_seq_ids;
+  std::map<std::string, int64_t> word_to_ind;
+  std::map<int64_t, std::string> ind_to_word;
+  std::vector<std::vector<int64_t>> src_seq_ids;
   // TODO(sfraczek): This seems to be irrelevant since we read only en (no de)
   std::vector<std::tuple<int, int, int>> sample_infos;
 };
