@@ -47,6 +47,9 @@ DataReader::DataReader(std::string vocab_path,
       test_translation_path(std::move(test_translation_path)),
       batch_size(batch_size) {
   load_dict();
+  bos_idx = word_to_ind[beg];
+  eos_idx = word_to_ind[end];
+  unk_idx = word_to_ind[unk];
 }
 
 void DataReader::load_dict() {
@@ -74,12 +77,12 @@ bool DataReader::NextBatch(std::vector <std::vector<int64_t>>& inst_data, std::v
     pieces.clear();
     split(line, sentence_sep, &pieces);
     std::vector<int_64> sentence_indices = convert_to_ind(pieces[0]);
-    inst_data.push_back(sentence_indices); 
+    inst_data.push_back(sentence_indices);
     if (sentence_indices.size() > max_length){
       max_length = sentence_indices.size();
     }
     for (auto j=0; j < sentence_indices.size(); j++){
-      inst_post[i][j] = j; 
+      inst_post[i][j] = j;
     }
     slf_attn_bias_data.resize(sentence_indices.size(), 0e0)
   }
@@ -95,9 +98,9 @@ bool DataReader::NextBatch(std::vector <std::vector<int64_t>>& inst_data, std::v
       for(int k = 0; k < max_length; k++){
         std::copy(slf_attn_bias_data+k*max_length, slf_attn_bias_data+(k+1)*max_length, tile_slf_attn_bias_data(i*n_head*max_length*max_length + j*max_length*max_length + k * max_length);
       }
-    }  
+    }
   }
-  max_len = max_length;  
+  max_len = max_length;
   return true;
 }
 std::vector<int> DataReader::convert_to_ind(const std::string& sentence) {
