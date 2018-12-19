@@ -24,30 +24,33 @@ namespace paddle {
 struct DataReader {
   explicit DataReader(std::string vocab_path,
                       std::string test_translation_path,
-                      int batch_size);
+                      int batch_size,
+                      int n_head);
 
   std::string convert_to_sentence(const std::vector<int>& indices);
-  bool NextBatch(std::vector< std::vector<int64_t> > test_lines,int batch_size);
 
-public:
-const int bos_idx=0;
+  bool NextBatch(std::vector<std::vector<int64_t>>& inst_data,
+                 std::vector<std::vector<int64_t>>& inst_pos,
+                 std::vector<std::vector<float>>& slf_attn_bias_data,
+                 int& max_len,
+                 int batch_size,
+                 int n_head);
 
+  const int bos_idx = 0;
+  const int eos_idx = 1;
+  const int unk_idx = 2;
 private:
   void load_dict();
-  std::ifstream test_translation_file(test_translation_path); 
+  std::ifstream test_translation_file;
  // void load_lines();
   void load_src_trg_ids(const std::vector<std::string>& test_lines);
   std::vector<int> convert_to_ind(const std::string& sentence);
   const std::string vocab_path;
   const std::string test_translation_path;
-  //const std::vector<std::string> test_lines;
   const int batch_size;
   std::string beg{"<s>"};
   std::string end{"<e>"};
   std::string unk{"<unk>"};
-  const int bos_idx = 0;
-  const int eos_idx = 1;
-  const int unk_idx = 2;
   const int n_head = 8;
   const char sentence_sep{'\t'};
   const char word_sep{' '};

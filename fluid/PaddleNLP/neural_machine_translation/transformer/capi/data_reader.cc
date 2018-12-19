@@ -42,10 +42,19 @@ static void split(const std::string& str,
 
 DataReader::DataReader(std::string vocab_path,
                        std::string test_translation_path,
-                       int batch_size)
+                       int batch_size,
+                       int n_head)
     : vocab_path(std::move(vocab_path)),
       test_translation_path(std::move(test_translation_path)),
-      batch_size(batch_size) {
+      batch_size(batch_size),
+      n_head(n_head) {
+  test_translation_file.open(test_translation_path);
+  if (!test_translation_file.is_open()) {
+    stringstream ss;
+    ss << "Cannot open test translation file: " << this->test_translation_path
+       << "\n";
+    throw std::runtime_error(ss.str());
+  }
   load_dict();
   bos_idx = word_to_ind[beg];
   eos_idx = word_to_ind[end];
@@ -63,46 +72,63 @@ void DataReader::load_dict() {
   }
 }
 
-bool DataReader::NextBatch(std::vector <std::vector<int64_t>>& inst_data, std::vector<std::vector<int64_t>> & inst_pos, std::vector <std::vector<float>> &slf_attn_bias_data, std::vector<std::vector<std::vector<float>>> tile_slf_attn_bias_data, int & max_len, int batch_size, int attn_bias_flag){
+bool DataReader::NextBatch(
+    std::vector<std::vector<int64_t>>& inst_data,
+    std::vector<std::vector<int64_t>>& inst_pos,
+    std::vector<std::vector<float>>& slf_attn_bias_data
+    int& max_length,
+    int batch_size) {
+  //clear vectors
   inst_data.clear();
   inst_pos.clear();
   slf_attn_bias_data.clear();
+  // resize vectors first dimension
+  inst_data.resize(batch_size);
+  inst_pos.resize(batch_size);
+  slf_attn_bias_data.resize(batch_size);
+
+  // get batch_size lines (sentences) from test file and convert them to
+  // indices, then put the indices to inst_data and remember max_length of
+  // sentence. Set inst_pos with (0,1,...,sentence_length) positional indexes.
+  // Set slf_attn_bias_data with zeros.
   std::string line;
   std::vector<std::string> pieces;
-  int max_length=0;
-  for(int i = 0; i < batch_size, i++){
-    if( !std::getline(test_translation_file,line) ){
-      return false; // consider the situation there is not enough lines for last batch
+  int max_length = 0;
+  for (int i = 0; i < batch_size, i++) {
+    if (!std::getline(test_translation_file, line)) {
+      return false;  // consider the situation there is not enough lines for
+                     // last batch
     }
     pieces.clear();
     split(line, sentence_sep, &pieces);
-    std::vector<int_64> sentence_indices = convert_to_ind(pieces[0]);
+    std::vector<int64_t> sentence_indices = convert_to_ind(pieces[0]);
     inst_data.push_back(sentence_indices);
-    if (sentence_indices.size() > max_length){
+    if (sentence_indices.size() > max_length) {
       max_length = sentence_indices.size();
     }
-    for (auto j=0; j < sentence_indices.size(); j++){
-      inst_post[i][j] = j;
+    inst_pos[i].resize(sentence_indices.size());
+    for (auto j = 0; j < sentence_indices.size(); j++) {
+      inst_pos[i][j] = j;
     }
-    slf_attn_bias_data.resize(sentence_indices.size(), 0e0)
+    slf_attn_bias_data[i].resize(sentence_indices.size(), 0e0);
   }
-  //padding for inst_data [1], inst_pos[0] and slf_attn_bias[-1e9]
-  for (int i = 0; i < batch_size; i++){
-    inst_data[i].resize(max_length, eos_index);
-    inst_pos.resize(max_length, 0);
-    slf_attn_bias_data.resize(max_length, -1e9)
+
+  // padding for inst_data with eos_idx, for inst_pos with 0, and for slf_attn_bias with -1e9
+  for (int i = 0; i < batch_size; i++) {
+    inst_data[i].resize(max_length, eos_idx);
+    inst_pos[i].resize(max_length, 0);
+    slf_attn_bias_data[i].resize(max_length, -1e9);
   }
-  //tile, batch_size*n_head*max_len*max_len
-  for (int i=0; i < batch_size; i++){
-    for(int j=0; j < n_head; j++){
-      for(int k = 0; k < max_length; k++){
-        std::copy(slf_attn_bias_data+k*max_length, slf_attn_bias_data+(k+1)*max_length, tile_slf_attn_bias_data(i*n_head*max_length*max_length + j*max_length*max_length + k * max_length);
-      }
-    }
-  }
-  max_len = max_length;
-  return true;
+  // tile, batch_size*n_head*max_length*max_length
+   typedef vector<vector<float> > V2;
+   typedef vector<vector<vector<float> > > V3;
+   tile_slf_attn_bias_data.resize(batch_size);
+   for (int i = 0; i < batch_size; i++) {
+     tile_slf_attn_bias_data[i] = V3(n_head, V2(max_length, inst_data[i]));
+   }
+   return true;
 }
+
 std::vector<int> DataReader::convert_to_ind(const std::string& sentence) {
   std::vector<std::string> pieces;
   std::vector<int> indices;
@@ -133,10 +159,6 @@ std::string DataReader::convert_to_sentence(const std::vector<int>& indices) {
   }
   if (indices.back() != end_i) sentence << " " << ind_to_word[indices.back()];
   return sentence.str();
-
-
-
-
 }
 
 void DataReader::load_src_trg_ids(const std::vector<std::string>& inst_data) {

@@ -56,6 +56,7 @@ DEFINE_int32(
     max_out_len,
     255,
     "The maximum depth(translation length) for Beam Search algorithm.");
+DEFINE_int32(n_head, 8, "Number of attention heads.");
 
 namespace {
 class Timer {
@@ -66,7 +67,9 @@ public:
   void tic() { start = std::chrono::high_resolution_clock::now(); }
   double toc() {
     startu = std::chrono::high_resolution_clock::now();
-    std::chrono::duration<double> time_span = std::chrono::duration_cast<std::chrono::duration<double>>(startu - start);
+    std::chrono::duration<double> time_span =
+        std::chrono::duration_cast<std::chrono::duration<double>>(startu -
+                                                                  start);
     double used_time_ms = static_cast<double>(time_span.count()) * 1000.0;
     return used_time_ms;
   }
@@ -92,11 +95,12 @@ void PrintOutput(const std::vector<paddle::PaddleTensor>& output,
   if (!ofile.is_open())
     throw std::invalid_argument("PrintOutput: cannot open the output file");
 
-  for (int i = 0; i < ids_lod[0].size() - 1; ++i) {
+  for (size_t i = 0; i < ids_lod[0].size() - 1; ++i) {
     auto start = ids_lod[0][i];
     auto sub_start = ids_lod[1][start];
     auto sub_end = ids_lod[1][start + 1];
     auto data_start = ids_data + sub_start;
+    auto data_end = ids_data + sub_end;
     std::vector<int> indices(data_start, data_end);
     std::string sentence = reader->convert_to_sentence(indices);
     ofile << sentence << std::endl;
@@ -105,13 +109,16 @@ void PrintOutput(const std::vector<paddle::PaddleTensor>& output,
 }
 
 void InitializeReader(std::unique_ptr<DataReader>& reader) {
-  reader.reset(new DataReader(
-      FLAGS_all_vocab_fpath, FLAGS_test_file_pattern, FLAGS_batch_size));
+  reader.reset(new DataReader(FLAGS_all_vocab_fpath,
+                              FLAGS_test_file_pattern,
+                              FLAGS_batch_size,
+                              FLAGS_n_head));
 }
 
-template<typename T>
-void copy_vector_of_vector(const vector<vector<T>> src_v_v, const T* dst_array_ptr) {
-  auto* dst_ptr =  dst_array_ptr;
+template <typename T>
+void copy_vector_of_vector(const std::vector<std::vector<T>> src_v_v,
+                           const T* dst_array_ptr) {
+  auto* dst_ptr = dst_array_ptr;
   for (auto v : src_v_v) {
     std::copy(v.begin(), v.end(), dst_ptr);
     dst_ptr += v.size();
@@ -129,72 +136,91 @@ int main() {
      std::cout << *it << endl;
 }
 */
-bool ReadNextBatch(PaddleTensor & src_word_tensor, PaddleTensor & src_pos_tensor, PaddleTensor & src_slf_attn_bias_tensor, PaddleTensor & trg_word_tensor, PaddleTensor & init_score_tensor, PaddleTensor & trg_src_attn_bias_tensor, std::unique_ptr<DataReader>& reader) {
-   
-   std::vector<std::vector<int64_t>> inst_data;
-   std::vector<std::vector<int64_t>> inst_pos;
-   std::vector<std::vector< std::vector< float >> tile_slf_attn_bias_data;
-   float * tile_slf_attn_bias_data;
-   int max_len = 0; 
-	 
-   reader->NextBatch(std::vector<std::vector<int64_t>>& inst_data, std::vector<std::vector<int64_t>> & inst_pos, std::vector<std::vector<std::vector<float>>> tile_slf_attn_bias_data, int & max_len, FLAGS_batch_size, attn_bias_flag);
-   //pad_batch_data
-	 bool DataReader::NextBatch(std::vector <std::vector<int64_t>>& inst_data, std::vector<std::vector<int64_t>> & inst_pos, std::vector <std::vector<float>> &slf_attn_bias_data, std::vector<std::vector<std::vector<float>>> tile_slf_attn_bias_data, int & max_len, FLAGS_batch_size, attn_bias_flag);
+bool ReadNextBatch(PaddleTensor& src_word_tensor,
+                   PaddleTensor& src_pos_tensor,
+                   PaddleTensor& src_slf_attn_bias_tensor,
+                   PaddleTensor& trg_word_tensor,
+                   PaddleTensor& init_score_tensor,
+                   PaddleTensor& trg_src_attn_bias_tensor,
+                   std::unique_ptr<DataReader>& reader) {
+  std::vector<std::vector<int64_t>> inst_data;
+  std::vector<std::vector<int64_t>> inst_pos;
+  std::vector<std::vector<float>> slf_attn_bias_data;
+  std::vector<std::vector<std::vector<std::vector<float>>>>
+      tile_slf_attn_bias_data;
+  int max_len = 0;
 
-   if (flag==false){
-     throw std::runtime_error("Less than batch size of lines left in the file, or other runtime errors");
+  bool read_full_batch = reader->NextBatch(inst_data,
+                                           inst_pos,
+                                           slf_attn_bias_data,
+                                           tile_slf_attn_bias_data,
+                                           max_len,
+                                           FLAGS_batch_size);
+
+  // pad_batch_data
+
+  if (read_full_batch == false) {
+    return false;  // we didn't read full batch. Stop or throw.
   }
 
   src_word_tensor.name = "src_word";
   src_pos_tensor.name = "src_pos";
-   src_slf_attn_bias_tensor.name = "src_slf_attn_bias"
-   trg_word_tensor.name = "trg_word";
+  src_slf_attn_bias_tensor.name = "src_slf_attn_bias";
+  trg_word_tensor.name = "trg_word";
   init_score_tensor.name = "init_score";
   trg_src_attn_bias_tensor.name = "trg_src_attn_bias";
 
-   src_word_tensor.shape = {FLAGS_batch_size, max_len, 1};
-   src_word_tensor.data.Resize( FLAGS_batch_sizie * max_len * sizeof(int64_t));
-   src_word_tensor.lod.clear();
+  src_word_tensor.shape = {FLAGS_batch_size, max_len, 1};
+  src_word_tensor.data.Resize(FLAGS_batch_size * max_len * sizeof(int64_t));
+  src_word_tensor.lod.clear();
 
-   src_pos_tensor.shape = {FLAGS_batch_size, max_len, 1};
-   src_pos_tensor.data.Rersize( FLAGS_batch_size * max_len * sizeof(int64_t));
-   src_pos_tensor.lod.clear();
+  src_pos_tensor.shape = {FLAGS_batch_size, max_len, 1};
+  src_pos_tensor.data.Resize(FLAGS_batch_size * max_len * sizeof(int64_t));
+  src_pos_tensor.lod.clear();
 
-   trg_src_attn_bias_tensor.shape = {FLAGS_batch_size, n_head, max_len, 1};
-   trg_src_attn_bias_tensor.data.Resize( FLAGS_batch * max_len * n_head * sizeof(float));
-   trg_src_attn_bias_tensor.lod.clear();
-   
-   trg_word_tensor.shape = {FLAGS_batch_size, 1, 1};
-   trg_word_tensor.data.Resize(FLAGS_batchi_size * sizeof(int_64));
-   trg_word_tensor.lod.clear();
-   std::vector<size_t> tmplod;
-   for (int i = 0 ; i <= FLAGS_batch_size ; i++){
-      tmplod.push_back(i);
-   }
-   trg_word_tensor.lod.push_back(tmpload);
-   trg_word_tensor.lod.push_back(tmpload);
-   int64_t * trg_word_array = trg_word_tensor.data.data();
-   for (int i = 0 ; i < FLAGS_batch_size ; i++){
-     *trg_word_array ++ = reader.bos_idx;  
-   }
- 
-   init_score_tensor.shape={FLAGS_batch_size,1};
-   init_score_tensor.data.Resize(FLAGS_batch_size*sizeof(float));
-   float * init_score_array = init_score_tensor.data.data();
-   for(int i = 0 ; i < FLAGS_batch_size ; i++){
-     *init_score_array++=0;
-   } 
-   init_score_tensor.lod.push_back(tmplod);
-   init_score_tensor.lod.push_back(tmplod); 
-  int64_t* src_word_array = static_cast<int64_t>(src_word_tensor.data.data());
-  int64_t* src_pos_array = static_cast<int64_t>(src_pos_tensor.dara.dara());
+  trg_src_attn_bias_tensor.shape = {FLAGS_batch_size, FLAGS_n_head, max_len, 1};
+  trg_src_attn_bias_tensor.data.Resize(FLAGS_batch_size * max_len *
+                                       FLAGS_n_head * sizeof(float));
+  trg_src_attn_bias_tensor.lod.clear();
+
+  trg_word_tensor.shape = {FLAGS_batch_size, 1, 1};
+  trg_word_tensor.data.Resize(FLAGS_batch_size * sizeof(int64_t));
+  trg_word_tensor.lod.clear();
+  std::vector<size_t> tmplod;
+  for (int i = 0; i <= FLAGS_batch_size; i++) {
+    tmplod.push_back(i);
+  }
+  trg_word_tensor.lod.push_back(tmplod);
+  trg_word_tensor.lod.push_back(tmplod);
+  int64_t* trg_word_array = static_cast<int64_t*>(trg_word_tensor.data.data());
+  for (int i = 0; i < FLAGS_batch_size; i++) {
+    *trg_word_array++ = reader->bos_idx;
+  }
+
+  init_score_tensor.shape = {FLAGS_batch_size, 1};
+  init_score_tensor.data.Resize(FLAGS_batch_size * sizeof(float));
+  float* init_score_array = static_cast<float*>(init_score_tensor.data.data());
+  for (int i = 0; i < FLAGS_batch_size; i++) {
+    *init_score_array++ = 0;
+  }
+  init_score_tensor.lod.push_back(tmplod);
+  init_score_tensor.lod.push_back(tmplod);
+  int64_t* src_word_array = static_cast<int64_t*>(src_word_tensor.data.data());
+  int64_t* src_pos_array = static_cast<int64_t*>(src_pos_tensor.data.data());
   float* trg_src_attn_bias_array =
-      static_cast<float>(trg_src_attn_bias_tensor.data.data());
+      static_cast<float*>(trg_src_attn_bias_tensor.data.data());
 
   copy_vector_of_vector(inst_data, src_word_array);
   copy_vector_of_vector(inst_data, src_pos_array);
-  for (auto v_v_i : tile_slf_attn_bias_data) {
-    copy_vector_of_vector(v_v_i, trg_src_attn_bias_array);
+
+  // tile, batch_size*n_head*max_length*max_length
+  for (int i = 0; i < batch_size; i++) {
+    for (int j = 0; j < reader->n_head * reader->max_len; j++) {
+      std::copy(
+          inst_data[i].begin(),
+          inst_data[i].end(),
+          trg_src_attn_bias_array + i * reader->n_head * max_len + j * max_len);
+    }
   }
 }
 
@@ -272,7 +298,15 @@ void Main() {
   std::unique_ptr<DataReader> reader;
 
 
-  // paddle::PaddleTensor input_fpattern = DefineInputData;
+  InitializeReader(reader);
+
+  std::vector<PaddleTensor> input(6);
+  bool read_full_batch = ReadNextBatch(
+      input[0], input[1], input[2], input[3], input[4], input[5], reader);
+  if (read_full_batch == false)
+    throw std::runtime_error("File contains less than one batch of data!\n");
+
+  // loop over entire file
 }
 
 }  // namespace paddle
