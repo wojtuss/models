@@ -34,7 +34,7 @@ def parse_args():
     parser.add_argument(
         "--batch_size",
         type=int,
-        default=50,
+        default=8,
         help="The number of examples in one run for sequence generation.")
     parser.add_argument(
         "--pool_size",
@@ -193,7 +193,7 @@ def fast_infer(test_data, trg_idx2word):
                 print(hyps[i][-1])
                 if len(hyps[i]) >= InferTaskConfig.n_best:
                     break
-
+        break 
 
 def infer(args, inferencer=fast_infer):
     place = fluid.CUDAPlace(0) if InferTaskConfig.use_gpu else fluid.CPUPlace()
