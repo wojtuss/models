@@ -26,12 +26,7 @@ DEFINE_string(infer_model, "", "Directory of the inference model.");
 DEFINE_string(all_vocab_fpath,
               "",
               "Path to a vocabulary file with both languages.");
-DEFINE_string(test_file_pattern, "", "The pattern to match test data files.");
-DEFINE_string(token_delimiter,
-              " ",
-              "The delimiter used to split tokens in source or target "
-              "sentences. For EN-DE BPE data we provided, use spaces as token "
-              "delimiter.");
+DEFINE_string(test_file_path, "", "The test data file with sentences.");
 DEFINE_string(output_file, "out_file.txt", "A file for the model output.");
 DEFINE_int32(batch_size,
              1,
@@ -111,7 +106,7 @@ void PrintOutput(const std::vector<paddle::PaddleTensor>& output,
 
 void InitializeReader(std::unique_ptr<DataReader>& reader) {
   reader.reset(new DataReader(FLAGS_all_vocab_fpath,
-                              FLAGS_test_file_pattern,
+                              FLAGS_test_file_path,
                               FLAGS_batch_size));
 }
 
@@ -223,24 +218,28 @@ bool ReadNextBatch(PaddleTensor& src_word_tensor,
   return true;
 }
 
+#define PRINT_OPTION(a)                               \
+  do {                                                \
+    std::cout << #a ": " << (FLAGS_##a) << std::endl; \
+  } while (false)
+
 void PrintInfo() {
   std::cout << std::endl
-            << "--- Used Parameters: -----------------" << std::endl
-            << "Inference model: " << FLAGS_infer_model << std::endl
-            << "Vocab file: " << FLAGS_all_vocab_fpath << std::endl
-            << "Test file pattern: " << FLAGS_test_file_pattern << std::endl
-            << "Token delimiter: " << FLAGS_token_delimiter << std::endl
-            << "Batch size: " << FLAGS_batch_size << std::endl
-            << "Use MKL-DNN: " << FLAGS_use_mkldnn << std::endl
-            << "Skip passes: " << FLAGS_skip_passes << std::endl
-            << "Enable graphviz: " << FLAGS_enable_graphviz << std::endl
-            << "One file params: " << FLAGS_one_file_params << std::endl
-            << "Profile: " << FLAGS_profile << std::endl
-            << "Paddle num threads : " << FLAGS_paddle_num_threads << std::endl
-            << "Beam size : " << FLAGS_beam_size << std::endl
-            << "Max out len : " << FLAGS_max_out_len << std::endl
-            << "Output file: " << FLAGS_output_file << std::endl
-             << "--------------------------------------" << std::endl;
+            << "--- Used Parameters: -----------------" << std::endl;
+  PRINT_OPTION(infer_model);
+  PRINT_OPTION(all_vocab_fpath);
+  PRINT_OPTION(test_file_path);
+  PRINT_OPTION(batch_size);
+  PRINT_OPTION(use_mkldnn);
+  PRINT_OPTION(skip_passes);
+  PRINT_OPTION(enable_graphviz);
+  PRINT_OPTION(one_file_params);
+  PRINT_OPTION(profile);
+  PRINT_OPTION(paddle_num_threads);
+  PRINT_OPTION(beam_size);
+  PRINT_OPTION(max_out_len);
+  PRINT_OPTION(output_file);
+  std::cout << "--------------------------------------" << std::endl;
 }
 
 void PrepareConfig(contrib::AnalysisConfig& config) {
