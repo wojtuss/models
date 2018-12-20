@@ -130,12 +130,12 @@ int main() {
      std::cout << *it << endl;
 }
 */
-bool ReadNextBatch(PaddleTensor& src_word_tensor,
-                   PaddleTensor& src_pos_tensor,
-                   PaddleTensor& src_slf_attn_bias_tensor,
-                   PaddleTensor& trg_word_tensor,
-                   PaddleTensor& init_score_tensor,
-                   PaddleTensor& trg_src_attn_bias_tensor,
+bool ReadNextBatch(PaddleTensor& trg_word_tensor,
+									 PaddleTensor& src_word_tensor,
+									 PaddleTensor& src_slf_attn_bias_tensor,
+									 PaddleTensor& src_pos_tensor,
+									 PaddleTensor& trg_src_attn_bias_tensor,
+									 PaddleTensor& init_score_tensor,
                    std::unique_ptr<DataReader>& reader) {
   std::vector<std::vector<int64_t>> inst_data;
   std::vector<std::vector<int64_t>> inst_pos;
@@ -181,7 +181,7 @@ bool ReadNextBatch(PaddleTensor& src_word_tensor,
   src_slf_attn_bias_tensor.dtype = PaddleDType::FLOAT32;
   
   trg_word_tensor.shape = {FLAGS_batch_size, 1, 1};
-  trg_word_tensor.data.Resize(FLAGS_batch_size * sizeof(int64_t));
+  trg_word_tensor.data.Resize(FLAGS_batch_size * 1 * 1 * sizeof(int64_t));
   
   trg_word_tensor.dtype = PaddleDType::INT64;
   trg_word_tensor.lod.clear();
@@ -189,28 +189,26 @@ bool ReadNextBatch(PaddleTensor& src_word_tensor,
   for (int i = 0; i <= FLAGS_batch_size; i++) {
     tmplod.push_back(i);
   }
-  trg_word_tensor.lod.push_back(tmplod);
-  trg_word_tensor.lod.push_back(tmplod);
+	trg_word_tensor.lod={tmplod,tmplod};
   int64_t* trg_word_array = static_cast<int64_t*>(trg_word_tensor.data.data());
   for (int i = 0; i < FLAGS_batch_size; i++) {
     *trg_word_array++ = reader->bos_idx;
   }
 
   init_score_tensor.shape = {FLAGS_batch_size, 1};
-  init_score_tensor.data.Resize(FLAGS_batch_size * sizeof(float));
+  init_score_tensor.data.Resize(FLAGS_batch_size * 1 * sizeof(float));
   init_score_tensor.dtype = PaddleDType::FLOAT32;
   float* init_score_array = static_cast<float*>(init_score_tensor.data.data());
   for (int i = 0; i < FLAGS_batch_size; i++) {
     *init_score_array++ = 0;
   }
-  init_score_tensor.lod.push_back(tmplod);
-  init_score_tensor.lod.push_back(tmplod);
+	init_score_tensor.lod={tmplod,tmplod};
   int64_t* src_word_array = static_cast<int64_t*>(src_word_tensor.data.data());
   int64_t* src_pos_array = static_cast<int64_t*>(src_pos_tensor.data.data());
 
   //TODO lidaniqng, seems trg_src_attn_bias_tensor doesnt need to be initialized
-  float* trg_src_attn_bias_array =
-      static_cast<float*>(trg_src_attn_bias_tensor.data.data());
+  // float* trg_src_attn_bias_array =
+  //     static_cast<float*>(trg_src_attn_bias_tensor.data.data());
   
   float* src_slf_attn_bias_array =
       static_cast<float*>(src_slf_attn_bias_tensor.data.data());
@@ -341,7 +339,7 @@ void Main() {
 
   if (stat(FLAGS_output_file.c_str(), &sb) == 0 && S_ISREG(sb.st_mode)) {
     std::cout << "Warning: The output file " + FLAGS_output_file +
-                     " already exists and it will be used in append mode!";
+                     " already exists and it will be used in append mode!\n";
   }
 
   std::unique_ptr<DataReader> reader;
