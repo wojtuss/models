@@ -159,25 +159,31 @@ bool ReadNextBatch(PaddleTensor& src_word_tensor,
 
   src_word_tensor.shape = {FLAGS_batch_size, max_length, 1};
   src_word_tensor.data.Resize(FLAGS_batch_size * max_length * sizeof(int64_t));
+  src_word_tensor.dtype = PaddleDType::INT64;
   src_word_tensor.lod.clear();
 
   src_pos_tensor.shape = {FLAGS_batch_size, max_length, 1};
   src_pos_tensor.data.Resize(FLAGS_batch_size * max_length * sizeof(int64_t));
   src_pos_tensor.lod.clear();
+  src_pos_tensor.dtype = PaddleDType::INT64;
 
- // trg_src_attn_bias_tensor.shape = {
- //     FLAGS_batch_size, FLAGS_n_head, max_length, max_length};
- // trg_src_attn_bias_tensor.data.Resize(FLAGS_batch_size * max_length *
- //                                      FLAGS_n_head * max_length * sizeof(float));
- // trg_src_attn_bias_tensor.lod.clear();
-
+  trg_src_attn_bias_tensor.shape = {
+      FLAGS_batch_size, FLAGS_n_head, 1, max_length};
+  trg_src_attn_bias_tensor.data.Resize(FLAGS_batch_size * FLAGS_n_head *1 * max_length * sizeof(float));
+  trg_src_attn_bias_tensor.lod.clear();
+  trg_src_attn_bias_tensor.dtype = PaddleDType::FLOAT32;
+  
   src_slf_attn_bias_tensor.shape = {FLAGS_batch_size, FLAGS_n_head, max_length, max_length};
-  src_slf_attn_bias_tensor.data.Resize(FLAGS_batch_size * max_length *
-                                       FLAGS_n_head * max_length * sizeof(float));
+  src_slf_attn_bias_tensor.data.Resize(FLAGS_batch_size * FLAGS_n_head *max_length *
+                                        max_length * sizeof(float));
   src_slf_attn_bias_tensor.lod.clear();
 
+  src_slf_attn_bias_tensor.dtype = PaddleDType::FLOAT32;
+  
   trg_word_tensor.shape = {FLAGS_batch_size, 1, 1};
   trg_word_tensor.data.Resize(FLAGS_batch_size * sizeof(int64_t));
+  
+  trg_word_tensor.dtype = PaddleDType::INT64;
   trg_word_tensor.lod.clear();
   std::vector<size_t> tmplod;
   for (int i = 0; i <= FLAGS_batch_size; i++) {
@@ -192,6 +198,7 @@ bool ReadNextBatch(PaddleTensor& src_word_tensor,
 
   init_score_tensor.shape = {FLAGS_batch_size, 1};
   init_score_tensor.data.Resize(FLAGS_batch_size * sizeof(float));
+  init_score_tensor.dtype = PaddleDType::FLOAT32;
   float* init_score_array = static_cast<float*>(init_score_tensor.data.data());
   for (int i = 0; i < FLAGS_batch_size; i++) {
     *init_score_array++ = 0;
@@ -202,19 +209,9 @@ bool ReadNextBatch(PaddleTensor& src_word_tensor,
   int64_t* src_pos_array = static_cast<int64_t*>(src_pos_tensor.data.data());
 
   //TODO lidaniqng, seems trg_src_attn_bias_tensor doesnt need to be initialized
-  //float* trg_src_attn_bias_array =
-  //    static_cast<float*>(trg_src_attn_bias_tensor.data.data());
-  // tile, batch_size*n_head*max_length*max_length
-  //for (int i = 0; i < FLAGS_batch_size; i++) {
-  //  for (int j = 0; j < reader->n_head * max_length; j++) {
-  //    std::copy(
-  //        inst_data[i].begin(),
-  //        inst_data[i].end(),
-  //       trg_src_attn_bias_array + i * reader->n_head * max_length + j * max_length);
-  //  }
-  //}
-  //TODO END
-
+  float* trg_src_attn_bias_array =
+      static_cast<float*>(trg_src_attn_bias_tensor.data.data());
+  
   float* src_slf_attn_bias_array =
       static_cast<float*>(src_slf_attn_bias_tensor.data.data());
   // tile, batch_size*n_head*max_length*max_length
