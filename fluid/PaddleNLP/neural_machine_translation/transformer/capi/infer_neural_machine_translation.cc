@@ -207,8 +207,9 @@ bool ReadNextBatch(PaddleTensor& trg_word_tensor,
   int64_t* src_pos_array = static_cast<int64_t*>(src_pos_tensor.data.data());
 
   //TODO lidaniqng, seems trg_src_attn_bias_tensor doesnt need to be initialized
-  // float* trg_src_attn_bias_array =
-  //     static_cast<float*>(trg_src_attn_bias_tensor.data.data());
+   float* trg_src_attn_bias_array =
+       static_cast<float*>(trg_src_attn_bias_tensor.data.data());
+	 std::fill_n(trg_src_attn_bias_array, FLAGS_batch_size * FLAGS_n_head *1 * max_length, 0);
   
   float* src_slf_attn_bias_array =
       static_cast<float*>(src_slf_attn_bias_tensor.data.data());
