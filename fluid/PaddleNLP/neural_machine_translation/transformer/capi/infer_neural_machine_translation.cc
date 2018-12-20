@@ -226,19 +226,19 @@ bool ReadNextBatch(PaddleTensor& src_word_tensor,
 void PrintInfo() {
   std::cout << std::endl
             << "--- Used Parameters: -----------------" << std::endl;
-  PRINT_OPTION(infer_model);
   PRINT_OPTION(all_vocab_fpath);
-  PRINT_OPTION(test_file_path);
   PRINT_OPTION(batch_size);
-  PRINT_OPTION(use_mkldnn);
-  PRINT_OPTION(skip_passes);
-  PRINT_OPTION(enable_graphviz);
-  PRINT_OPTION(one_file_params);
-  PRINT_OPTION(profile);
-  PRINT_OPTION(paddle_num_threads);
   PRINT_OPTION(beam_size);
+  PRINT_OPTION(enable_graphviz);
+  PRINT_OPTION(infer_model);
   PRINT_OPTION(max_out_len);
+  PRINT_OPTION(one_file_params);
   PRINT_OPTION(output_file);
+  PRINT_OPTION(paddle_num_threads);
+  PRINT_OPTION(profile);
+  PRINT_OPTION(skip_passes);
+  PRINT_OPTION(test_file_path);
+  PRINT_OPTION(use_mkldnn);
   std::cout << "--------------------------------------" << std::endl;
 }
 
