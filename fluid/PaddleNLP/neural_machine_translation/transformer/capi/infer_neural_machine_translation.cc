@@ -288,10 +288,42 @@ void Main() {
   if (FLAGS_batch_size <= 0)
     throw std::invalid_argument(
         "The batch_size option is less than or equal to 0.");
+  if (FLAGS_iterations <= 0)
+    throw std::invalid_argument(
+        "The iterations option is less than or equal to 0.");
+  if (FLAGS_skip_batch_num < 0)
+    throw std::invalid_argument(
+        "The skip_batch_num option is less than 0.");
+  if (FLAGS_paddle_num_threads <= 0)
+    throw std::invalid_argument(
+        "The paddle_num_threads option is less than or equal to 0.");
+  if (FLAGS_beam_size <= 0)
+    throw std::invalid_argument(
+        "The beam_size option is less than or equal to 0.");
+  if (FLAGS_n_head <= 0)
+    throw std::invalid_argument(
+        "The n_head option is less than or equal to 0.");
+  if (FLAGS_max_out_len <= 0)
+    throw std::invalid_argument(
+        "The max_out_len option is less than or equal to 0.");
   struct stat sb;
   if (stat(FLAGS_infer_model.c_str(), &sb) != 0 || !S_ISDIR(sb.st_mode)) {
     throw std::invalid_argument(
         "The inference model directory does not exist.");
+  }
+  sb = stat{}; // TODO(sfraczek): do I need to recreat this?
+  if (stat(FLAGS_all_vocab_fpath.c_str(), &sb) != 0 || !S_ISDIR(sb.st_mode)) {
+    throw std::invalid_argument(
+        "The inference model directory does not exist.");
+  }
+  sb = stat{}; // TODO(sfraczek): do I need to recreat this?
+  if (stat(FLAGS_test_file_path.c_str(), &sb) != 0 || !S_ISDIR(sb.st_mode)) {
+    throw std::invalid_argument(
+        "The inference model directory does not exist.");
+  }
+  sb = stat{};
+  if(stat(FLAGS_output_file.c_str(), &sb) == 0 && S_ISDIR(sb.st_mode)) {
+    std::cout << "Warning: Output file " + output_file + " already exists and it will be appended to, not rewritten!";
   }
 
   std::unique_ptr<DataReader> reader;
