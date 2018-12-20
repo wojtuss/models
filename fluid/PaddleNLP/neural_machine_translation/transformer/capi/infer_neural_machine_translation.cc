@@ -19,6 +19,7 @@
 #include <string>
 #include "data_reader.h"
 #include "paddle/fluid/inference/paddle_inference_api.h"
+#include "paddle/fluid/platform/profiler.h"
 #include "stats.h"
 
 DEFINE_string(infer_model, "", "Directory of the inference model.");
@@ -118,7 +119,7 @@ template <typename T>
 void copy_vector_of_vector(const std::vector<std::vector<T>>& src_v_v,
                            T* dst_array_ptr) {
   auto* dst_ptr = dst_array_ptr;
-  for (auto v: src_v_v ) { 
+  for (auto v : src_v_v) {
     std::copy(v.begin(), v.end(), dst_ptr);
     dst_ptr += v.size();
   }
@@ -288,14 +289,13 @@ void Main() {
   if (FLAGS_batch_size <= 0)
     throw std::invalid_argument(
         "The batch_size option is less than or equal to 0.");
-  // struct stat sb;
-  // if (stat(FLAGS_infer_model.c_str(), &sb) != 0 || !S_ISDIR(sb.st_mode)) {
-  //   throw std::invalid_argument(
-  //       "The inference model directory does not exist.");
-  // }
+  struct stat sb;
+  if (stat(FLAGS_infer_model.c_str(), &sb) != 0 || !S_ISDIR(sb.st_mode)) {
+    throw std::invalid_argument(
+        "The inference model directory does not exist.");
+  }
 
   std::unique_ptr<DataReader> reader;
-
 
   InitializeReader(reader);
 
@@ -305,7 +305,42 @@ void Main() {
   if (read_full_batch == false)
     throw std::runtime_error("File contains less than one batch of data!\n");
 
-  // loop over entire file
+  // configure predictor
+  contrib::AnalysisConfig config;
+  PrepareConfig(config);
+
+  auto predictor = CreatePaddlePredictor<contrib::AnalysisConfig,
+                                         PaddleEngineKind::kAnalysis>(config);
+
+  if (FLAGS_profile) {
+    auto pf_state = paddle::platform::ProfilerState::kCPU;
+    paddle::platform::EnableProfiler(pf_state);
+  }
+
+  // define output and timer
+  std::vector<PaddleTensor> output_slots;
+  Timer timer;
+
+  // enable profiler
+  if (FLAGS_profile) {
+    auto pf_state = paddle::platform::ProfilerState::kCPU;
+    paddle::platform::EnableProfiler(pf_state);
+  }
+
+  // run prediction
+  timer.tic();
+  if (!predictor->Run(input, &output_slots))
+    throw std::runtime_error("Prediction failed.");
+  double batch_time = timer.toc() / 1000;
+  std::cout << "batch_time: " << batch_time << "\n";
+
+  // disable profiler
+  if (FLAGS_profile) {
+    paddle::platform::DisableProfiler(paddle::platform::EventSortingKey::kTotal,
+                                      "/tmp/profiler");
+  }
+
+  PrintOutput(output_slots, FLAGS_output_file, reader);
 }
 
 }  // namespace paddle
