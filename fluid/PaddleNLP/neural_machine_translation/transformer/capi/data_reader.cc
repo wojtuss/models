@@ -100,7 +100,7 @@ bool DataReader::NextBatch(std::vector<std::vector<int64_t>>& inst_data,
     split(line, sentence_sep, &pieces);
     std::vector<int64_t> sentence_indices = convert_to_ind(pieces[0]);
     inst_data[i] = sentence_indices;
-    if (sentence_indices.size() > static_cast<size_t>max_length) {
+    if (sentence_indices.size() > static_cast<size_t>(max_length)) {
       max_length = sentence_indices.size();
     }
     inst_pos[i].resize(sentence_indices.size());
