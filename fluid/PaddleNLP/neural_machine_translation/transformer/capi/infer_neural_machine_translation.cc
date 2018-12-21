@@ -140,13 +140,12 @@ bool ReadNextBatch(PaddleTensor& src_word_tensor,
   std::vector<std::vector<int64_t>> inst_data;
   std::vector<std::vector<int64_t>> inst_pos;
   std::vector<std::vector<float>> slf_attn_bias_data;
-  size_t max_length = 0;
+  int max_length = 0;
 
   bool read_full_batch = reader->NextBatch(
       inst_data, inst_pos, slf_attn_bias_data, max_length, FLAGS_batch_size);
 
   // pad_batch_data
-  int max_len = (int)max_length;
   if (read_full_batch == false) {
     return false;  // we didn't read full batch. Stop or throw.
   }
@@ -158,23 +157,23 @@ bool ReadNextBatch(PaddleTensor& src_word_tensor,
   init_score_tensor.name = "init_score";
   trg_src_attn_bias_tensor.name = "trg_src_attn_bias";
 
-  src_word_tensor.shape = {FLAGS_batch_size, max_len, 1};
-  src_word_tensor.data.Resize(FLAGS_batch_size * max_len * sizeof(int64_t));
+  src_word_tensor.shape = {FLAGS_batch_size, max_length, 1};
+  src_word_tensor.data.Resize(FLAGS_batch_size * max_length * sizeof(int64_t));
   src_word_tensor.lod.clear();
 
-  src_pos_tensor.shape = {FLAGS_batch_size, max_len, 1};
-  src_pos_tensor.data.Resize(FLAGS_batch_size * max_len * sizeof(int64_t));
+  src_pos_tensor.shape = {FLAGS_batch_size, max_length, 1};
+  src_pos_tensor.data.Resize(FLAGS_batch_size * max_length * sizeof(int64_t));
   src_pos_tensor.lod.clear();
 
  // trg_src_attn_bias_tensor.shape = {
- //     FLAGS_batch_size, FLAGS_n_head, max_len, max_len};
- // trg_src_attn_bias_tensor.data.Resize(FLAGS_batch_size * max_len *
- //                                      FLAGS_n_head * max_len * sizeof(float));
+ //     FLAGS_batch_size, FLAGS_n_head, max_length, max_length};
+ // trg_src_attn_bias_tensor.data.Resize(FLAGS_batch_size * max_length *
+ //                                      FLAGS_n_head * max_length * sizeof(float));
  // trg_src_attn_bias_tensor.lod.clear();
 
-  src_slf_attn_bias_tensor.shape = {FLAGS_batch_size, FLAGS_n_head, max_len, max_len};
-  src_slf_attn_bias_tensor.data.Resize(FLAGS_batch_size * max_len *
-                                       FLAGS_n_head * max_len * sizeof(float));
+  src_slf_attn_bias_tensor.shape = {FLAGS_batch_size, FLAGS_n_head, max_length, max_length};
+  src_slf_attn_bias_tensor.data.Resize(FLAGS_batch_size * max_length *
+                                       FLAGS_n_head * max_length * sizeof(float));
   src_slf_attn_bias_tensor.lod.clear();
 
   trg_word_tensor.shape = {FLAGS_batch_size, 1, 1};
@@ -201,30 +200,30 @@ bool ReadNextBatch(PaddleTensor& src_word_tensor,
   init_score_tensor.lod.push_back(tmplod);
   int64_t* src_word_array = static_cast<int64_t*>(src_word_tensor.data.data());
   int64_t* src_pos_array = static_cast<int64_t*>(src_pos_tensor.data.data());
-  
+
   //TODO lidaniqng, seems trg_src_attn_bias_tensor doesnt need to be initialized
   //float* trg_src_attn_bias_array =
   //    static_cast<float*>(trg_src_attn_bias_tensor.data.data());
   // tile, batch_size*n_head*max_length*max_length
   //for (int i = 0; i < FLAGS_batch_size; i++) {
-  //  for (int j = 0; j < reader->n_head * max_len; j++) {
+  //  for (int j = 0; j < reader->n_head * max_length; j++) {
   //    std::copy(
   //        inst_data[i].begin(),
   //        inst_data[i].end(),
-  //       trg_src_attn_bias_array + i * reader->n_head * max_len + j * max_len);
+  //       trg_src_attn_bias_array + i * reader->n_head * max_length + j * max_length);
   //  }
   //}
   //TODO END
-  
+
   float* src_slf_attn_bias_array =
       static_cast<float*>(src_slf_attn_bias_tensor.data.data());
   // tile, batch_size*n_head*max_length*max_length
   for (int i = 0; i < FLAGS_batch_size; i++) {
-    for (int j = 0; j < reader->n_head * max_len; j++) {
+    for (int j = 0; j < reader->n_head * max_length; j++) {
       std::copy(
           inst_data[i].begin(),
           inst_data[i].end(),
-          src_slf_attn_bias_array + i * reader->n_head * max_len + j * max_len);
+          src_slf_attn_bias_array + i * reader->n_head * max_length + j * max_length);
     }
   }
 
