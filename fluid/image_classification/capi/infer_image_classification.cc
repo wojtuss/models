@@ -73,30 +73,33 @@ public:
 
 namespace paddle {
 
+#define PRINT_OPTION(a)                               \
+  do {                                                \
+    std::cout << #a ": " << (FLAGS_##a) << std::endl; \
+  } while (false)
+
 void PrintInfo() {
   std::cout << std::endl
-            << "--- Used Parameters: -----------------" << std::endl
-            << "Inference model: " << FLAGS_infer_model << std::endl
-            << "File with list of images: " << FLAGS_data_list << std::endl
-            << "Directory with images: " << FLAGS_data_dir << std::endl
-            << "Batch size: " << FLAGS_batch_size << std::endl
-            << "Padlle num threads: " << FLAGS_paddle_num_threads << std::endl
-            << "Iterations: " << FLAGS_iterations << std::endl
-            << "Number of batches to skip: " << FLAGS_skip_batch_num
-            << std::endl
-            << "Use fake data: " << FLAGS_use_fake_data << std::endl
-            << "Use MKL-DNN: " << FLAGS_use_mkldnn << std::endl
-            << "Skip passes: " << FLAGS_skip_passes << std::endl
-            << "Debug display image: " << FLAGS_debug_display_images
-            << std::endl
-            << "Profile: " << FLAGS_profile << std::endl
-            << "With labels: " << FLAGS_with_labels << std::endl
-            << "One file params: " << FLAGS_one_file_params << std::endl
-            << "Channels: " << FLAGS_channels << std::endl
-            << "Resize size: " << FLAGS_resize_size << std::endl
-            << "Crop size: " << FLAGS_crop_size << std::endl
-            << "Enable graphviz: " << FLAGS_enable_graphviz << std::endl
-            << "--------------------------------------" << std::endl;
+            << "--- Used Parameters: -----------------" << std::endl;
+  PRINT_OPTION(batch_size);
+  PRINT_OPTION(channels);
+  PRINT_OPTION(crop_size);
+  PRINT_OPTION(data_dir);
+  PRINT_OPTION(data_list);
+  PRINT_OPTION(debug_display_images);
+  PRINT_OPTION(enable_graphviz);
+  PRINT_OPTION(infer_model);
+  PRINT_OPTION(iterations);
+  PRINT_OPTION(one_file_params);
+  PRINT_OPTION(paddle_num_threads);
+  PRINT_OPTION(profile);
+  PRINT_OPTION(resize_size);
+  PRINT_OPTION(skip_batch_num);
+  PRINT_OPTION(skip_passes);
+  PRINT_OPTION(use_fake_data);
+  PRINT_OPTION(use_mkldnn);
+  PRINT_OPTION(with_labels);
+  std::cout << "--------------------------------------" << std::endl;
 }
 
 // Count elements of a tensor from its shape vector
@@ -241,7 +244,8 @@ void Main() {
         "The inference model directory does not exist.");
   }
   if (FLAGS_with_labels && FLAGS_use_fake_data)
-    throw std::invalid_argument("Cannot use fake data for accuracy measuring.");
+    std::cout << "You are using fake data - ignore the accuracy values."
+              << std::endl;
 
   paddle::PaddleTensor input_data = DefineInputData();
   paddle::PaddleTensor input_labels = DefineInputLabels();

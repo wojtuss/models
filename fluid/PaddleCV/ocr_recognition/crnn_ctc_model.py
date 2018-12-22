@@ -130,14 +130,16 @@ def encoder_net(images,
         gradient_clip=gradient_clip,
         initializer=fluid.initializer.Normal(0.0, 0.02))
 
-    fc_1 = fluid.layers.fc(input=sliced_feature,
-                           size=rnn_hidden_size * 3,
-                           param_attr=para_attr,
-                           bias_attr=bias_attr_nobias)
-    fc_2 = fluid.layers.fc(input=sliced_feature,
-                           size=rnn_hidden_size * 3,
-                           param_attr=para_attr,
-                           bias_attr=bias_attr_nobias)
+    fc_1 = fluid.layers.fc(
+        input=sliced_feature,
+        size=rnn_hidden_size * 3,
+        param_attr=para_attr,
+        bias_attr=bias_attr_nobias)
+    fc_2 = fluid.layers.fc(
+        input=sliced_feature,
+        size=rnn_hidden_size * 3,
+        param_attr=para_attr,
+        bias_attr=bias_attr_nobias)
 
     gru_forward = fluid.layers.dynamic_gru(
         input=fc_1,
@@ -162,10 +164,11 @@ def encoder_net(images,
         gradient_clip=gradient_clip,
         initializer=fluid.initializer.Normal(0.0, 0.0))
 
-    fc_out = fluid.layers.fc(input=[gru_forward, gru_backward],
-                             size=num_classes + 1,
-                             param_attr=w_attr,
-                             bias_attr=b_attr)
+    fc_out = fluid.layers.fc(
+        input=[gru_forward, gru_backward],
+        size=num_classes + 1,
+        param_attr=w_attr,
+        bias_attr=b_attr)
 
     return fc_out
 
@@ -225,12 +228,17 @@ def ctc_eval(data_shape, num_classes, use_cudnn):
     fc_out = encoder_net(images, num_classes, is_test=True, use_cudnn=use_cudnn)
     decoded_out = fluid.layers.ctc_greedy_decoder(
         input=fc_out, blank=num_classes)
-
     casted_label = fluid.layers.cast(x=label, dtype='int64')
     error_evaluator = fluid.evaluator.EditDistance(
         input=decoded_out, label=casted_label)
+    return decoded_out, error_evaluator
 
-    cost = fluid.layers.warpctc(
-        input=fc_out, label=label, blank=num_classes, norm_by_times=True)
 
-    return error_evaluator, cost
+def ctc_eval_noacc(data_shape, num_classes, use_cudnn):
+    images = fluid.layers.data(name='pixel', shape=data_shape, dtype='float32')
+    label = fluid.layers.data(
+        name='label', shape=[1], dtype='int64', lod_level=1)
+    fc_out = encoder_net(images, num_classes, is_test=True, use_cudnn=use_cudnn)
+    decoded_out = fluid.layers.ctc_greedy_decoder(
+        input=fc_out, blank=num_classes)
+    return decoded_out

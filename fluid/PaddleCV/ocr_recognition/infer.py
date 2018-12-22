@@ -18,7 +18,7 @@ add_arg('model',    str,   "crnn_ctc",           "Which type of network to be us
 add_arg('model_path',         str,  None,   "The model path to be used for inference.")
 add_arg('input_images_dir',   str,  None,   "The directory of images.")
 add_arg('save_model_dir', str, None, "save_model_dir")
-add_arg('save_model', bool, True, "Save model or not during inference" )
+
 add_arg('input_images_list',  str,  None,   "The list file of images.")
 add_arg('dict',               str,  None,   "The dictionary. The result of inference will be index sequence if the dictionary was None.")
 add_arg('use_gpu',            bool,  True,      "Whether use GPU to infer.")
@@ -93,10 +93,9 @@ def inference(args):
                          feed=feed_dict,
                          fetch_list=[ids],
                          return_numpy=False)
-        if args.save_model == True:
-            fluid.io.save_inference_model(args.save_model_dir,["pixel"],[ids],exe,fluid.default_main_program())
-            print("Save model !!!")
+        fluid.io.save_inference_model(args.save_model_dir,["pixel"],[ids],exe,fluid.default_main_program())
         indexes = prune(np.array(result[0]).flatten(), 0, 1)
+        print("Save model !!!")
 
         #fluid.io.save_inference_model(args.save_model_dir,["pixel"],indexes.all(),exe,fluid.default_main_program())
 

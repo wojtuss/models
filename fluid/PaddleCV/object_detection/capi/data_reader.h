@@ -21,7 +21,6 @@
 
 namespace paddle {
 
-// Data reader for imagenet for ResNet50
 struct DataReader {
   explicit DataReader(const std::string& data_list_path,
                       const std::string& data_dir_path,
