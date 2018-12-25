@@ -12,7 +12,8 @@ from model import wrap_decoder as decoder
 from model import fast_decode as fast_decoder
 from config import *
 from train import pad_batch_data
-import reader_ori as reader
+import reader
+
 
 def parse_args():
     parser = argparse.ArgumentParser("Training for Transformer.")
@@ -34,7 +35,7 @@ def parse_args():
     parser.add_argument(
         "--batch_size",
         type=int,
-        default=8,
+        default=50,
         help="The number of examples in one run for sequence generation.")
     parser.add_argument(
         "--pool_size",
@@ -58,20 +59,28 @@ def parse_args():
         help='See config.py for all options',
         default=None,
         nargs=argparse.REMAINDER)
+    parser.add_argument(
+        "--save_model_dir",
+        type=str,
+        default="",
+        help="The directory to save the model to.")
     args = parser.parse_args()
     # Append args related to dict
     src_dict = reader.DataReader.load_dict(args.src_vocab_fpath)
     trg_dict = reader.DataReader.load_dict(args.trg_vocab_fpath)
     dict_args = [
-        "src_vocab_size", str(len(src_dict)), "trg_vocab_size",
-        str(len(trg_dict)), "bos_idx", str(src_dict[args.special_token[0]]),
-        "eos_idx", str(src_dict[args.special_token[1]]), "unk_idx",
+        "src_vocab_size",
+        str(len(src_dict)), "trg_vocab_size",
+        str(len(trg_dict)), "bos_idx",
+        str(src_dict[args.special_token[0]]), "eos_idx",
+        str(src_dict[args.special_token[1]]), "unk_idx",
         str(src_dict[args.special_token[2]])
     ]
     merge_cfg_from_list(args.opts + dict_args,
                         [InferTaskConfig, ModelHyperParams])
     return args
 
+#delete the starting character and ending character of the result sequence
 def post_process_seq(seq,
                      bos_idx=ModelHyperParams.bos_idx,
                      eos_idx=ModelHyperParams.eos_idx,
@@ -92,6 +101,10 @@ def post_process_seq(seq,
     ]
     return seq
 
+
+
+# put the insts(data_input) to the dict
+# pad the batch of data to the same length as the longgest one 
 def prepare_batch_input(insts, data_input_names, src_pad_idx, bos_idx, n_head,
                         d_model, place):
     """
@@ -116,9 +129,8 @@ def prepare_batch_input(insts, data_input_names, src_pad_idx, bos_idx, n_head,
 
     # beamsearch_op must use tensors with lod
     init_score = to_lodtensor(
-        np.zeros_like(
-            trg_word, dtype="float32").reshape(-1, 1),
-        place, [range(trg_word.shape[0] + 1)] * 2)
+        np.zeros_like(trg_word, dtype="float32").reshape(-1, 1), place,
+        [range(trg_word.shape[0] + 1)] * 2)
     trg_word = to_lodtensor(trg_word, place, [range(trg_word.shape[0] + 1)] * 2)
 
     data_input_dict = dict(
@@ -126,9 +138,10 @@ def prepare_batch_input(insts, data_input_names, src_pad_idx, bos_idx, n_head,
             src_word, src_pos, src_slf_attn_bias, trg_word, init_score,
             trg_src_attn_bias
         ]))
-    
+
     input_dict = dict(data_input_dict.items())
     return input_dict
+
 
 def fast_infer(test_data, trg_idx2word):
     """
@@ -161,13 +174,22 @@ def fast_infer(test_data, trg_idx2word):
 
     for batch_id, data in enumerate(test_data.batch_generator()):
         data_input = prepare_batch_input(
-            data, encoder_data_input_fields + fast_decoder_data_input_fields,
-            ModelHyperParams.eos_idx, ModelHyperParams.bos_idx,
-            ModelHyperParams.n_head, ModelHyperParams.d_model, place)
-        seq_ids, seq_scores = exe.run(infer_program,
-                                      feed=data_input,
-                                      fetch_list=[out_ids, out_scores],
-                                      return_numpy=False)
+            data, encoder_data_input_fields + fast_decoder_data_input_fields, ModelHyperParams.eos_idx, ModelHyperParams.bos_idx, ModelHyperParams.n_head, ModelHyperParams.d_model, place)
+
+        if args.save_inference_model:
+            fluid.io.save_inference_model(
+                args.save_model_dir,
+                data_input, [out_ids, out_scores],
+                exe,
+                main_program=infer_program)
+            print("Model saved!")
+            exit()
+
+        seq_ids, seq_scores = exe.run(
+            infer_program,
+            feed=data_input,
+            fetch_list=[out_ids, out_scores],
+            return_numpy=False)
         # How to parse the results:
         #   Suppose the lod of seq_ids is:
         #     [[0, 3, 6], [0, 12, 24, 40, 54, 67, 82]]
@@ -185,15 +207,14 @@ def fast_infer(test_data, trg_idx2word):
                 sub_start = seq_ids.lod()[1][start + j]
                 sub_end = seq_ids.lod()[1][start + j + 1]
                 hyps[i].append(" ".join([
-                    trg_idx2word[idx]
-                    for idx in post_process_seq(
+                    trg_idx2word[idx] for idx in post_process_seq(
                         np.array(seq_ids)[sub_start:sub_end])
                 ]))
                 scores[i].append(np.array(seq_scores)[sub_end - 1])
                 print(hyps[i][-1])
                 if len(hyps[i]) >= InferTaskConfig.n_best:
                     break
-        break 
+
 
 def infer(args, inferencer=fast_infer):
     place = fluid.CUDAPlace(0) if InferTaskConfig.use_gpu else fluid.CPUPlace()
@@ -205,7 +226,7 @@ def infer(args, inferencer=fast_infer):
         use_token_batch=False,
         batch_size=args.batch_size,
         pool_size=args.pool_size,
-        sort_type=reader.SortType.NONE,
+        sort_type="none",
         shuffle=False,
         shuffle_batch=False,
         start_mark=args.special_token[0],
@@ -217,7 +238,7 @@ def infer(args, inferencer=fast_infer):
     trg_idx2word = test_data.load_dict(
         dict_path=args.trg_vocab_fpath, reverse=True)
     inferencer(test_data, trg_idx2word)
-
+    print("end here");
 
 if __name__ == "__main__":
     args = parse_args()

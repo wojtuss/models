@@ -1,7 +1,16 @@
-export FLAGS_use_mkldnn=0
+export FLAGS_use_mkldnn=1
 export OMP_NUM_THREADS=1
+#export KMP_AFFINITY=granularity=fine,compact,1,0
+#export KMP_BLOCKTIME=1   
 
-python -m pdb ../infer_ori.py \
+#gdb --args python -u ../infer.py \
+  python ../infer_profile.py \
+  --display_output True \
+  --save_output True \
+  --device CPU \
+  --skip_pass_num 3 \
+  --profile \
+  --num_profiling_passes 5 \
   --src_vocab_fpath ~/data/wmt16_ende_data_bpe_clean/vocab_all.bpe.32000 \
   --trg_vocab_fpath ~/data/wmt16_ende_data_bpe_clean/vocab_all.bpe.32000 \
   --special_token '<s>' '<e>' '<unk>' \
