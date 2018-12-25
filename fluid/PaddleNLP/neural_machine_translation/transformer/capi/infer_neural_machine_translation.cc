@@ -102,6 +102,7 @@ void PrintOutput(const std::vector<paddle::PaddleTensor>& output,
     auto data_end = ids_data + sub_end;
     std::vector<int64_t> indices(data_start, data_end);
     std::string sentence = reader->convert_to_sentence(indices);
+    std::cout << sentence << std::endl;
     ofile << sentence << std::endl;
   }
   ofile.close();
@@ -395,11 +396,8 @@ void Main() {
       throw std::runtime_error("Prediction failed.");
     
     double batch_time = timer.toc() / 1000;
-    if (i < FLAGS_skip_batch_num)
-      std::cout << "warm-up batch_time: " << batch_time << "\n";
-    else
-      std::cout << "batch_time: " << batch_time << "\n";
-   
+    std::string prefix= i < FLAGS_skip_batch_num ? " warm up batch num ": " profiling batch num ";
+      std::cout << "\n++++++++++++++++++++++++++++++++++" << prefix << i << " batch time "<< batch_time << "++++++++++++++++++++++++\n";
     PrintOutput(output_slots, FLAGS_output_file, reader);
   }
 

@@ -8,9 +8,9 @@ export OMP_NUM_THREADS=1
   --display_output True \
   --save_output True \
   --device CPU \
-  --skip_pass_num 3 \
+  --skip_pass_num 5 \
   --profile \
-  --num_profiling_passes 5 \
+  --num_profiling_passes 100 \
   --src_vocab_fpath ~/data/wmt16_ende_data_bpe_clean/vocab_all.bpe.32000 \
   --trg_vocab_fpath ~/data/wmt16_ende_data_bpe_clean/vocab_all.bpe.32000 \
   --special_token '<s>' '<e>' '<unk>' \
