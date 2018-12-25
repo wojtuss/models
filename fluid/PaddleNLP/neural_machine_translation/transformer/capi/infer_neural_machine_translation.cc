@@ -1,3 +1,4 @@
+
 // Copyright (c) 2018 PaddlePaddle Authors. All Rights Reserved.
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -31,9 +32,11 @@ DEFINE_string(output_file, "out_file.txt", "A file for the model output.");
 DEFINE_int32(batch_size,
              1,
              "The number of examples in one run for sequence generation.");
-DEFINE_int32(iterations, 1, "How many times to repeat run.");
+
+DEFINE_int32(iterations, 5, "How many times to repeat run.");
 DEFINE_int32(skip_batch_num, 0, "How many minibatches to skip in statistics.");
 DEFINE_bool(use_mkldnn, false, "Use MKL-DNN.");
+DEFINE_bool(use_fake_data, false, "Use fake data or not.");
 DEFINE_bool(skip_passes, false, "Skip running passes.");
 DEFINE_bool(enable_graphviz,
             false,
@@ -243,6 +246,8 @@ void PrintInfo() {
   PRINT_OPTION(enable_graphviz);
   PRINT_OPTION(infer_model);
   PRINT_OPTION(max_out_len);
+  PRINT_OPTION(skip_batch_num);
+  PRINT_OPTION(iterations);
   PRINT_OPTION(one_file_params);
   PRINT_OPTION(output_file);
   PRINT_OPTION(paddle_num_threads);
@@ -367,28 +372,48 @@ void Main() {
 
   // define output and timer
   std::vector<PaddleTensor> output_slots;
-  Timer timer;
-
-  // enable profiler
-  if (FLAGS_profile) {
-    auto pf_state = paddle::platform::ProfilerState::kCPU;
-    paddle::platform::EnableProfiler(pf_state);
-  }
+  Timer timer, timer_total;
 
   // run prediction
-  timer.tic();
-  if (!predictor->Run(input, &output_slots))
-    throw std::runtime_error("Prediction failed.");
-  double batch_time = timer.toc() / 1000;
-  std::cout << "batch_time: " << batch_time << "\n";
+  for (int i = 0 ; i < FLAGS_iterations + FLAGS_skip_batch_num ; i++){
+    if (i == FLAGS_skip_batch_num){
+      timer_total.tic();
+      if (FLAGS_profile){
+        paddle::platform::ResetProfiler();
+      }
+    }
+
+    // read next batch of data
+    if (i > 0 && !FLAGS_use_fake_data) {
+      if (!ReadNextBatch(input[0], input[1], input[2], input[3], input[4], input[5], reader)) {
+        std::cout << "No more full batches. Stopping." << std::endl;
+        break;
+      }
+    }
+    timer.tic();
+    if (!predictor->Run(input, &output_slots))
+      throw std::runtime_error("Prediction failed.");
+    
+    double batch_time = timer.toc() / 1000;
+    if (i < FLAGS_skip_batch_num)
+      std::cout << "warm-up batch_time: " << batch_time << "\n";
+    else
+      std::cout << "batch_time: " << batch_time << "\n";
+   
+    PrintOutput(output_slots, FLAGS_output_file, reader);
+  }
+
 
   // disable profiler
   if (FLAGS_profile) {
     paddle::platform::DisableProfiler(paddle::platform::EventSortingKey::kTotal,
                                       "/tmp/profiler");
   }
+  //double total_samples = FLAGS_iterations * FLAGS_batch_size;
+  double total_time = timer_total.toc()/1000;
+  std::cout << "total profiling time:" << total_time << "\n";
+  //stats.Postprocess(total_time, total_samples);
 
-  PrintOutput(output_slots, FLAGS_output_file, reader);
 }
 
 }  // namespace paddle
