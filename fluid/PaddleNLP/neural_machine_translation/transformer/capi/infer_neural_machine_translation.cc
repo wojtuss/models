@@ -30,7 +30,7 @@ DEFINE_string(all_vocab_fpath,
 DEFINE_string(test_file_path, "", "The test data file with sentences.");
 DEFINE_string(output_file, "out_file.txt", "A file for the model output.");
 DEFINE_int32(batch_size,
-             1,
+             8,
              "The number of examples in one run for sequence generation.");
 
 DEFINE_int32(iterations, 5, "How many times to repeat run.");
@@ -175,17 +175,17 @@ bool ReadNextBatch(PaddleTensor& trg_word_tensor,
   trg_src_attn_bias_tensor.data.Resize(FLAGS_batch_size * FLAGS_n_head *1 * max_length * sizeof(float));
   trg_src_attn_bias_tensor.lod.clear();
   trg_src_attn_bias_tensor.dtype = PaddleDType::FLOAT32;
-  
+
   src_slf_attn_bias_tensor.shape = {FLAGS_batch_size, FLAGS_n_head, max_length, max_length};
   src_slf_attn_bias_tensor.data.Resize(FLAGS_batch_size * FLAGS_n_head *max_length *
                                         max_length * sizeof(float));
   src_slf_attn_bias_tensor.lod.clear();
 
   src_slf_attn_bias_tensor.dtype = PaddleDType::FLOAT32;
-  
+
   trg_word_tensor.shape = {FLAGS_batch_size, 1, 1};
   trg_word_tensor.data.Resize(FLAGS_batch_size * 1 * 1 * sizeof(int64_t));
-  
+
   trg_word_tensor.dtype = PaddleDType::INT64;
   trg_word_tensor.lod.clear();
   std::vector<size_t> tmplod;
@@ -213,7 +213,7 @@ bool ReadNextBatch(PaddleTensor& trg_word_tensor,
    float* trg_src_attn_bias_array =
        static_cast<float*>(trg_src_attn_bias_tensor.data.data());
 	 std::fill_n(trg_src_attn_bias_array, FLAGS_batch_size * FLAGS_n_head *1 * max_length, 0);
-  
+
   float* src_slf_attn_bias_array =
       static_cast<float*>(src_slf_attn_bias_tensor.data.data());
   // tile, batch_size*n_head*max_length*max_length
