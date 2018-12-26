@@ -1,7 +1,7 @@
 
-To profile python version transformer 
+# To profile python version transformer 
 
-## 1. Dwnload the data, models and mosesdecoder, run:
+## 1. Download the data, models and mosesdecoder, run:
 ```
 bash ../scripts/download_data_model.sh
 ```
@@ -46,21 +46,18 @@ python ../infer_profile.py \
 ```
 To add profiling, use the `--profile` option.
 
-To run inference without running passes, use option `--skip_pass_num`.
-
 To display output on stdout, use option `--display_output True`
+
+To run inference without running passes, use option `--skip_pass_num`.
 
 ## 3. Accuracy(BLEU) measurement
 Baidu provide BLEU = 33.06 as the translation score reference, refer to [https://github.intel.com/AIPG/paddle-models/blob/develop/fluid/PaddleNLP/neural_machine_translation/transformer/README_cn.md]
 
-The capi application generate translated output.txt file in folder build/, and then We generate BLEU score by
+We get predict.txt in folder scripts/, and then We generate BLEU score by
 ```
 sed -r 's/(@@ )|(@@ ?$)//g' predict.txt > predict.tok.txt
 perl /home/li/data/gen_data/mosesdecoder/scripts/generic/multi-bleu.perl  /home/li/data/gen_data/wmt16_ende_data/newstest2016.tok.de < predict.tok.txt
 ```
-
-The minimum PaddlePaddle version needed for the code sample in this directory is the lastest develop branch. If you are on a version of PaddlePaddle earlier than this, [please update your installation](http://www.paddlepaddle.org/docs/develop/documentation/en/build_and_install/pip_install_en.html).
-
 ---
 
 # Attention is All You Need: A Paddle Fluid implementation
