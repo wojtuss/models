@@ -20,12 +20,12 @@ def parse_args():
     parser = argparse.ArgumentParser("Training for Transformer.")
     parser.add_argument(
         '--display_output',
-        type=bool,
+        type=ast.literal_eval,
         default=False,
         help="Display translation result or not")
     parser.add_argument(
         '--save_output',
-        type=bool,
+        type=ast.literal_eval,
         default=False,
         help="Save output of inference to file")
     parser.add_argument(
@@ -248,7 +248,7 @@ def fast_infer(test_data, trg_idx2word):
                         np.array(seq_ids)[sub_start:sub_end])
                 ]))
                 scores[i].append(np.array(seq_scores)[sub_end - 1])
-                if args.display_output:
+                if args.display_output==True:
                     print(hyps[i][-1])
                 if args.save_output:
                     with open('predict.txt', 'a') as file:
