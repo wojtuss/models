@@ -1,10 +1,4 @@
-#!/bin/bash
 
-DATA_PATH=$HOME/.cache/paddle/dataset/wmt16
-if [ ! -e $DATA_PATH/en_10000.dict ] ; then
-    python -c 'import paddle;paddle.dataset.wmt16.train(10000, 10000, "en")().next()'
-    tar -zxf $DATA_PATH/wmt16.tar.gz -C $DATA_PATH
-fi
 
 train(){
     python -u train.py \
@@ -32,3 +26,4 @@ cudaid=${transformer_m:=0,1,2,3} # use 0,1,2,3 card as default
 export CUDA_VISIBLE_DEVICES=$cudaid
 
 train | python _ce.py
+

@@ -2,7 +2,7 @@ import argparse
 import ast
 import numpy as np
 from functools import partial
-
+import os
 import paddle
 import paddle.fluid as fluid
 
@@ -12,10 +12,41 @@ from model import wrap_decoder as decoder
 from model import fast_decode as fast_decoder
 from config import *
 from train import pad_batch_data
-import reader as reader
+import reader
+import paddle.fluid.profiler as profiler
+import time
 
 def parse_args():
     parser = argparse.ArgumentParser("Training for Transformer.")
+    parser.add_argument(
+        '--display_output',
+        type=ast.literal_eval,
+        default=False,
+        help="Display translation result or not")
+    parser.add_argument(
+        '--save_output',
+        type=ast.literal_eval,
+        default=False,
+        help="Save output of inference to file")
+    parser.add_argument(
+				'--device',
+				type=str,
+				default='GPU',
+				help="GPU or CPU device")
+    parser.add_argument(
+        "--skip_pass_num",
+        type=int,
+        default=0,
+        help="Profiling the inference but skip the first few passes")
+    parser.add_argument(
+        "--profile",
+        action='store_true',
+        help="If set, do profiling")
+    parser.add_argument(
+        "--num_profiling_passes",
+        type=int,
+        default=100,
+        help="Number of passes that do profiling")
     parser.add_argument(
         "--src_vocab_fpath",
         type=str,
@@ -34,7 +65,7 @@ def parse_args():
     parser.add_argument(
         "--batch_size",
         type=int,
-        default=8,
+        default=50,
         help="The number of examples in one run for sequence generation.")
     parser.add_argument(
         "--pool_size",
@@ -72,6 +103,7 @@ def parse_args():
                         [InferTaskConfig, ModelHyperParams])
     return args
 
+
 def post_process_seq(seq,
                      bos_idx=ModelHyperParams.bos_idx,
                      eos_idx=ModelHyperParams.eos_idx,
@@ -91,6 +123,7 @@ def post_process_seq(seq,
         if (output_bos or idx != bos_idx) and (output_eos or idx != eos_idx)
     ]
     return seq
+
 
 def prepare_batch_input(insts, data_input_names, src_pad_idx, bos_idx, n_head,
                         d_model, place):
@@ -126,9 +159,10 @@ def prepare_batch_input(insts, data_input_names, src_pad_idx, bos_idx, n_head,
             src_word, src_pos, src_slf_attn_bias, trg_word, init_score,
             trg_src_attn_bias
         ]))
-    
+
     input_dict = dict(data_input_dict.items())
     return input_dict
+
 
 def fast_infer(test_data, trg_idx2word):
     """
@@ -159,15 +193,39 @@ def fast_infer(test_data, trg_idx2word):
     # This is used here to set dropout to the test mode.
     infer_program = fluid.default_main_program().clone(for_test=True)
 
+    pass_id = 0
+    total_passes =  args.num_profiling_passes + args.skip_pass_num
+    batch_latency = [0.0]*total_passes
+    batch_wps = [0.0]*total_passes
+
     for batch_id, data in enumerate(test_data.batch_generator()):
+       
         data_input = prepare_batch_input(
             data, encoder_data_input_fields + fast_decoder_data_input_fields,
             ModelHyperParams.eos_idx, ModelHyperParams.bos_idx,
             ModelHyperParams.n_head, ModelHyperParams.d_model, place)
+        
+        start = time.time()        
+
         seq_ids, seq_scores = exe.run(infer_program,
                                       feed=data_input,
                                       fetch_list=[out_ids, out_scores],
                                       return_numpy=False)
+          
+        batch_latency_cur = time.time() - start
+        
+        if pass_id == args.skip_pass_num:
+            profiler.reset_profiler() 
+        
+        batch_latency[pass_id] = batch_latency_cur
+        batch_wps[pass_id] =  args.batch_size / batch_latency_cur  
+        if pass_id < args.skip_pass_num:
+ 						strprefix = "Warm-up pass"
+        else:
+            strprefix ="Profiling pass"
+        print("\n++++++++++  %s, Batch: %d, batch_size: %d, latency: %.5f s, sentence per sec: %f +++++++++++\n" % (strprefix, pass_id, args.batch_size, batch_latency[pass_id], batch_wps[pass_id])) 
+        pass_id = pass_id + 1
+
         # How to parse the results:
         #   Suppose the lod of seq_ids is:
         #     [[0, 3, 6], [0, 12, 24, 40, 54, 67, 82]]
@@ -190,10 +248,37 @@ def fast_infer(test_data, trg_idx2word):
                         np.array(seq_ids)[sub_start:sub_end])
                 ]))
                 scores[i].append(np.array(seq_scores)[sub_end - 1])
-                print(hyps[i][-1])
+                if args.display_output==True:
+                    print(hyps[i][-1])
+                if args.save_output:
+                    with open('predict.txt', 'a') as file:
+                        file.write(hyps[i][-1]+'\n')
                 if len(hyps[i]) >= InferTaskConfig.n_best:
                     break
-        break 
+        
+        if pass_id == total_passes:
+            latencies = batch_latency[args.skip_pass_num:]
+            latency_avg = np.average(latencies)
+            latency_std = np.std(latencies)
+            latency_pc99 = np.percentile(latencies, 99)
+            wpses = batch_wps[args.skip_pass_num:]
+            wps_avg = np.average(wpses)
+            wps_std = np.std(wpses)
+            wps_pc01 = np.percentile(wpses, 1)
+            
+            print('\n\nTotal passes (incl. warm-up): %d\n' % (total_passes))
+            print('Total examples (incl. warm-up): %d\n' % (total_passes * args.batch_size))
+            print('avg latency: %.5f, std latency: %.5f, 99pc latency: %.5f\n' %(latency_avg, latency_std, latency_pc99))
+            print('avg wps: %.5f, std wps: %.5f, wps for 99pc latency: %.5f\n' %(wps_avg, wps_std, wps_pc01))
+
+            break
+
+def print_arguments(args):
+    print('-----------  Configuration Arguments -----------')
+    for arg, value in sorted(vars(args).iteritems()):
+        print('%s: %s' % (arg, value))
+    print('------------------------------------------------')
+
 
 def infer(args, inferencer=fast_infer):
     place = fluid.CUDAPlace(0) if InferTaskConfig.use_gpu else fluid.CPUPlace()
@@ -221,4 +306,15 @@ def infer(args, inferencer=fast_infer):
 
 if __name__ == "__main__":
     args = parse_args()
-    infer(args)
+    print_arguments(args)
+    if os.path.exists("predict.txt"):
+        os.remove("predict.txt")
+    if args.profile:
+        if args.device == 'GPU':
+            with profiler.cuda_profiler("cuda_profiler.txt",'csv') as nvprof:
+                infer(args)
+        else:
+            with profiler.profiler('CPU',sorted_key='total') as cpuprof:
+                infer(args)
+    else:
+        infer(args)

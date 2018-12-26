@@ -1,6 +1,6 @@
 class TrainTaskConfig(object):
     # support both CPU and GPU now.
-    use_gpu = True
+    use_gpu = False
     # the epoch number to train.
     pass_num = 30
     # the number of sequences contained in a mini-batch.
@@ -35,7 +35,7 @@ class TrainTaskConfig(object):
 
 
 class InferTaskConfig(object):
-    use_gpu = True
+    use_gpu = False
     # the number of examples in one run for sequence generation.
     batch_size = 10
     # the parameters for beam search.
@@ -97,7 +97,7 @@ class ModelHyperParams(object):
 
 def merge_cfg_from_list(cfg_list, g_cfgs):
     """
-    Set the above global configurations using the cfg_list. 
+    Set the above global configurations using the cfg_list.
     """
     assert len(cfg_list) % 2 == 0
     for key, value in zip(cfg_list[0::2], cfg_list[1::2]):
@@ -170,28 +170,34 @@ input_descs = {
 # Names of word embedding table which might be reused for weight sharing.
 word_emb_param_names = (
     "src_word_emb_table",
-    "trg_word_emb_table", )
+    "trg_word_emb_table",
+)
 # Names of position encoding table which will be initialized externally.
 pos_enc_param_names = (
     "src_pos_enc_table",
-    "trg_pos_enc_table", )
+    "trg_pos_enc_table",
+)
 # separated inputs for different usages.
 encoder_data_input_fields = (
     "src_word",
     "src_pos",
-    "src_slf_attn_bias", )
+    "src_slf_attn_bias",
+)
 decoder_data_input_fields = (
     "trg_word",
     "trg_pos",
     "trg_slf_attn_bias",
     "trg_src_attn_bias",
-    "enc_output", )
+    "enc_output",
+)
 label_data_input_fields = (
     "lbl_word",
-    "lbl_weight", )
+    "lbl_weight",
+)
 # In fast decoder, trg_pos (only containing the current time step) is generated
 # by ops and trg_slf_attn_bias is not needed.
 fast_decoder_data_input_fields = (
     "trg_word",
     "init_score",
-    "trg_src_attn_bias", )
+    "trg_src_attn_bias",
+)
