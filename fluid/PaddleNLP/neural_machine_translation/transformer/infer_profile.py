@@ -223,7 +223,7 @@ def fast_infer(test_data, trg_idx2word):
  						strprefix = "Warm-up pass"
         else:
             strprefix ="Profiling pass"
-        print("\n++++++++++  %s, Batch: %d, batch_size: %d, latency: %.5f s, sentence per sec: %f +++++++++++\n" % (strprefix, pass_id, args.batch_size, batch_latency[pass_id], batch_wps[pass_id])) 
+        print("\n++++  %s, Batch: %d, batch_size: %d, latency: %.5f s, sentence per sec: %f +++" % (strprefix, pass_id, args.batch_size, batch_latency[pass_id], batch_wps[pass_id])) 
         pass_id = pass_id + 1
 
         # How to parse the results:

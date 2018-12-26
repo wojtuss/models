@@ -21,7 +21,7 @@
 #include "data_reader.h"
 #include "paddle/fluid/inference/paddle_inference_api.h"
 #include "paddle/fluid/platform/profiler.h"
-#include "stats.h"
+//#include "stats.h"
 
 DEFINE_string(infer_model, "", "Directory of the inference model.");
 DEFINE_string(all_vocab_fpath,
@@ -401,7 +401,8 @@ void Main() {
     
     double batch_time = timer.toc() / 1000;
     std::string prefix= i < FLAGS_skip_batch_num ? " warm up batch num ": " profiling batch num ";
-    std::cout << "\n++++++++++++++++++++++++++++++++++" << prefix << i << " batch time "<< batch_time << "++++++++++++++++++++++++\n";
+    std::string midfix=  ", batch size " + std::to_string(FLAGS_batch_size);
+    std::cout << "\n+++" << prefix << i << midfix << ", batch time "<< batch_time << "+++";
     PrintOutput(output_slots, FLAGS_output_file, reader);
   }
 

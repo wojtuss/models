@@ -3,10 +3,10 @@ export OMP_NUM_THREADS=1
 #export KMP_AFFINITY=granularity=fine,compact,1,0
 #export KMP_BLOCKTIME=1   
 
-#python ../infer_profile.py \
-python -m pdb ../infer_profile.py \
+#python -m pdb ../infer_profile.py \
+python ../infer_profile.py \
   --save_output True \
-  --display_output True \
+  --display_output False \
   --device CPU \
   --skip_pass_num 5 \
   --profile \
