@@ -3,6 +3,7 @@ MODELS_ROOT=$HOME/models
 
 DATA_PATH=$DATA_ROOT/wmt16_ende_data_bpe_clean
 MODEL_PATH=$MODELS_ROOT/iter_100000.infer.model
+MOSES_PATH=$DATA_ROOT/mosesdecoder
 
 if [ ! -d $DATA_PATH ] ; then
 echo "Data doesn't exist, downloading the dataset"
@@ -17,6 +18,11 @@ wget --output-document=wmt16_ende_data.tar.gz http://transformer-model-data.bj.b
 echo "unzip the dataset"
 tar xvf wmt16_ende_data.tar.gz
 rm wmt16_ende_data.tar.gz
+fi
+
+if [ ! -d $MOSES_PATH ]; then
+echo "mosesdecoder doesnt exist, cloning moses for data processing"
+git clone https://github.com/moses-smt/mosesdecoder.git ${MOSES_PATH}
 fi
 
 
@@ -35,6 +41,8 @@ tar xvf iter_100000_infer_model.tar.gz
 rm iter_100000_infer_model.tar.gz
 fi
 
+
 echo dataset at $DATA_PATH
 echo model at $MODEL_PATH
-echo Done!
+echo mosesdecoder at $MOSES_PATH
+echo All Downloaded!
