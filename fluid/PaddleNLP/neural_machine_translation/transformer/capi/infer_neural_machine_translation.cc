@@ -93,7 +93,6 @@ void PrintOutput(const std::vector<paddle::PaddleTensor>& output,
   std::ofstream ofile(out_file, std::fstream::out | std::fstream::app);
   if (!ofile.is_open())
     throw std::invalid_argument("PrintOutput: cannot open the output file");
-
   for (size_t i = 0; i < ids_lod[0].size() - 1; ++i) {
     auto start = ids_lod[0][i];
     auto sub_start = ids_lod[1][start];
@@ -210,10 +209,15 @@ bool ReadNextBatch(PaddleTensor& trg_word_tensor,
   int64_t* src_word_array = static_cast<int64_t*>(src_word_tensor.data.data());
   int64_t* src_pos_array = static_cast<int64_t*>(src_pos_tensor.data.data());
 
-  //TODO lidaniqng, seems trg_src_attn_bias_tensor doesnt need to be initialized
-   float* trg_src_attn_bias_array =
-       static_cast<float*>(trg_src_attn_bias_tensor.data.data());
-	 std::fill_n(trg_src_attn_bias_array, FLAGS_batch_size * FLAGS_n_head *1 * max_length, 0);
+  float* trg_src_attn_bias_array = static_cast<float*>(trg_src_attn_bias_tensor.data.data());
+  for (int i = 0; i< FLAGS_batch_size; i++){
+    for (int j = 0; j < reader->n_head ; j++){
+      std::copy(
+          slf_attn_bias_data[i].begin(),
+          slf_attn_bias_data[i].end(),
+          trg_src_attn_bias_array + i * reader->n_head * max_length + j * max_length);
+    }
+  }
 
   float* src_slf_attn_bias_array =
       static_cast<float*>(src_slf_attn_bias_tensor.data.data());
@@ -221,9 +225,9 @@ bool ReadNextBatch(PaddleTensor& trg_word_tensor,
   for (int i = 0; i < FLAGS_batch_size; i++) {
     for (int j = 0; j < reader->n_head * max_length; j++) {
       std::copy(
-          inst_data[i].begin(),
-          inst_data[i].end(),
-          src_slf_attn_bias_array + i * reader->n_head * max_length + j * max_length);
+          slf_attn_bias_data[i].begin(),
+          slf_attn_bias_data[i].end(),
+          src_slf_attn_bias_array + i * reader->n_head * max_length * max_length+ j * max_length);
     }
   }
 
@@ -397,7 +401,7 @@ void Main() {
     
     double batch_time = timer.toc() / 1000;
     std::string prefix= i < FLAGS_skip_batch_num ? " warm up batch num ": " profiling batch num ";
-      std::cout << "\n++++++++++++++++++++++++++++++++++" << prefix << i << " batch time "<< batch_time << "++++++++++++++++++++++++\n";
+    std::cout << "\n++++++++++++++++++++++++++++++++++" << prefix << i << " batch time "<< batch_time << "++++++++++++++++++++++++\n";
     PrintOutput(output_slots, FLAGS_output_file, reader);
   }
 
