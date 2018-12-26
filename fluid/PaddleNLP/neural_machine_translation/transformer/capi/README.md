@@ -30,7 +30,7 @@ Now a directory named `fluid_install_dir` should exist in the build directory.
 Remember that path.
 
 ## 3. Build C-API inference application
-Go to the location of this README.md (... fluid/PaddleNLP/neural_machine_translation/transformer/capi)
+Go to the location of this README.md (PaddleNLP/neural_machine_translation/transformer/capi)
 ```
 mkdir build
 cd build
@@ -39,12 +39,18 @@ make
 ```
 
 ## 4. Prepare data and models
-Download the data, models and mosesdecoder you need:
-run /transformer/scripts/download_data_model.sh  
+Download the data, models and mosesdecoder, run:
+```
+bash ../scripts/download_data_model.sh  
+```
+copy the __model__ file [PaddleNLP/neural_machine_translation/transformer/saved_model] iter_100000.infer.model/ 
+
 model folder is iter_100000.infer.model/   
+
 data foler for inference is wmt16_ende_data_clean  
+
 mosesdecoder folder is mosesdecoder  
-copy the __model__ file [fluid/PaddleNLP/neural_machine_translation/transformer/saved_model] iter_100000.infer.model/ 
+
 Optional: model weights and data above is recently provided by Baidu, there are other formal dataset by transformer/gen_data.sh, which include training and other data.
 
 ## 5. Run
@@ -71,7 +77,7 @@ cd build
   --max_out_len=255 \
   --iterations=200000  \
   --skip_batch_num=0 \
-  --output_file=./output_file.txt \
+  --output_file=./output.txt \
 cd -
 ```
 To add profiling, use the `--profile` option.
