@@ -43,7 +43,7 @@ Download the data, models and mosesdecoder, run:
 ```
 bash ../scripts/download_data_model.sh  
 ```
-copy the __model__ file [PaddleNLP/neural_machine_translation/transformer/saved_model] iter_100000.infer.model/ 
+copy the \_\_model\_\_ file at [ PaddleNLP/neural_machine_translation/transformer/saved_model] to iter_100000.infer.model/ 
 
 model folder is iter_100000.infer.model/   
 
@@ -51,7 +51,7 @@ data foler for inference is wmt16_ende_data_clean
 
 mosesdecoder folder is mosesdecoder  
 
-Optional: model weights and data above is recently provided by Baidu, there are other formal dataset by transformer/gen_data.sh, which include training and other data.
+Optional: model weights and data above is recently provided by Baidu, there are also formal dataset one could download via transformer/gen_data.sh, which include training dataset, but it is not needed in capi and python inference
 
 ## 5. Run
 If everything built successfully, you can inference.
@@ -84,14 +84,16 @@ To add profiling, use the `--profile` option.
 
 To run inference without running passes, use option `--skip_passes`.
 
+To switch on or off mkldnn, use option `--use_mkldnn` 
 
-## 6. Accuracy(BLEU) measurement standard
-Baidu provide BLEU = 33.06 as the translation score reference. The capi generate translated output.txt file, and then We generate BLEU score by  
+## 6. Accuracy(BLEU) measurement
+Baidu provide BLEU = 33.06 as the translation score reference, refer to [https://github.intel.com/AIPG/paddle-models/blob/develop/fluid/PaddleNLP/neural_machine_translation/transformer/README_cn.md]
+
+The capi application generate translated output.txt file in folder build/, and then We generate BLEU score by  
 ```
 sed -r 's/(@@ )|(@@ ?$)//g' output.txt > output.tok.txt
 perl /home/li/data/gen_data/mosesdecoder/scripts/generic/multi-bleu.perl  /home/li/data/gen_data/wmt16_ende_data/newstest2016.tok.de < output.tok.txt
 ```
-For detailed explanation about BLEU and transformer, refer to [https://github.intel.com/AIPG/paddle-models/blob/develop/fluid/PaddleNLP/neural_machine_translation/transformer/README_cn.md]
-
+We did inference of 2000 iterations(sentences), achieving BLEU score 33.86.
 
 
