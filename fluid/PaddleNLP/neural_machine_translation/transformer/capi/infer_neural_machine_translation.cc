@@ -101,7 +101,7 @@ void PrintOutput(const std::vector<paddle::PaddleTensor>& output,
     auto data_end = ids_data + sub_end;
     std::vector<int64_t> indices(data_start, data_end);
     std::string sentence = reader->convert_to_sentence(indices);
-    std::cout << sentence << std::endl;
+    //std::cout << sentence << std::endl;
     ofile << sentence << std::endl;
   }
   ofile.close();
