@@ -45,6 +45,7 @@ model folder is iter_100000.infer.model/
 data foler for inference is wmt16_ende_data_clean  
 mosesdecoder folder is mosesdecoder  
 copy the __model__ file [fluid/PaddleNLP/neural_machine_translation/transformer/saved_model] iter_100000.infer.model/ 
+Optional: model weights and data above is recently provided by Baidu, there are other formal dataset by transformer/gen_data.sh, which include training and other data.
 
 ## 5. Run
 If everything built successfully, you can inference.
