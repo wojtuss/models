@@ -7,6 +7,7 @@ export OMP_NUM_THREADS=1
 python ../infer_profile.py \
   --save_output True \
   --display_output False \
+  --save_path predict.txt \
   --device CPU \
   --skip_pass_num 5 \
   --profile \

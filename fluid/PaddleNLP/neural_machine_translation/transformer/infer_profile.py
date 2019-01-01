@@ -29,6 +29,11 @@ def parse_args():
         default=False,
         help="Save output of inference to file")
     parser.add_argument(
+        '--save_path',
+        type=str,
+        default="predict.txt",
+        help="The file name we are going to save the output")
+    parser.add_argument(
 				'--device',
 				type=str,
 				default='GPU',
@@ -251,7 +256,7 @@ def fast_infer(test_data, trg_idx2word):
                 if args.display_output==True:
                     print(hyps[i][-1])
                 if args.save_output:
-                    with open('predict.txt', 'a') as file:
+                    with open(args.save_path, 'a') as file:
                         file.write(hyps[i][-1]+'\n')
                 if len(hyps[i]) >= InferTaskConfig.n_best:
                     break
@@ -307,8 +312,8 @@ def infer(args, inferencer=fast_infer):
 if __name__ == "__main__":
     args = parse_args()
     print_arguments(args)
-    if os.path.exists("predict.txt"):
-        os.remove("predict.txt")
+    if os.path.exists(args.save_path):
+        os.remove(args.save_path)
     if args.profile:
         if args.device == 'GPU':
             with profiler.cuda_profiler("cuda_profiler.txt",'csv') as nvprof:
