@@ -54,9 +54,6 @@ DataReader::DataReader(std::string vocab_path,
     throw std::runtime_error(ss.str());
   }
   load_dict();
-  // bos_idx = word_to_ind[beg];
-  // eos_idx = word_to_ind[end];
-  // unk_idx = word_to_ind[unk];
 }
 
 void DataReader::load_dict() {
@@ -117,13 +114,6 @@ bool DataReader::NextBatch(std::vector<std::vector<int64_t>>& inst_data,
     inst_pos[i].resize(max_length, 0);
     slf_attn_bias_data[i].resize(max_length, -1e9);
   }
-  //  // tile, batch_size*n_head*max_length*max_length
-  //   typedef vector<vector<float> > V2;
-  //   typedef vector<vector<vector<float> > > V3;
-  //   tile_slf_attn_bias_data.resize(batch_size);
-  //   for (int i = 0; i < batch_size; i++) {
-  //     tile_slf_attn_bias_data[i] = V3(n_head, V2(max_length, inst_data[i]));
-  //   }
   return true;
 }
 

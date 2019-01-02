@@ -15,13 +15,13 @@
 #include <chrono>
 #include <fstream>
 #include <iostream>
+#include <stdio.h>
 #include <map>
 #include <random>
 #include <string>
 #include "data_reader.h"
 #include "paddle/fluid/inference/paddle_inference_api.h"
 #include "paddle/fluid/platform/profiler.h"
-//#include "stats.h"
 
 DEFINE_string(infer_model, "", "Directory of the inference model.");
 DEFINE_string(all_vocab_fpath,
@@ -41,11 +41,6 @@ DEFINE_bool(skip_passes, false, "Skip running passes.");
 DEFINE_bool(enable_graphviz,
             false,
             "Enable graphviz to get .dot files with data flow graphs.");
-DEFINE_bool(with_labels, true, "The infer model do handle data labels.");
-DEFINE_bool(one_file_params,
-            false,
-            "Parameters of the model are in one file 'params' and model in a "
-            "file 'model'.");
 DEFINE_bool(profile, false, "Turn on profiler for fluid");
 DEFINE_int32(paddle_num_threads,
              1,
@@ -121,18 +116,7 @@ void copy_vector_of_vector(const std::vector<std::vector<T>>& src_v_v,
     dst_ptr += v.size();
   }
 }
-/*
-int main() {
-   typedef vector<double> V1;
-   typedef vector<vector<double> > V2;
-   typedef vector<vector<vector<double> > > V3;
-   V3 vec3D(1, V2(2, V1(3, 0.0)));  // Create a 3-D vector
-   V1 vec1D;
-   flatten(vec3D, back_inserter(vec1D)); // Flatten the vector to 1-D
-   for (V1::const_iterator it = vec1D.begin(); it != vec1D.end(); ++it)
-     std::cout << *it << endl;
-}
-*/
+
 bool ReadNextBatch(PaddleTensor& trg_word_tensor,
 									 PaddleTensor& src_word_tensor,
 									 PaddleTensor& src_slf_attn_bias_tensor,
@@ -253,7 +237,6 @@ void PrintInfo() {
   PRINT_OPTION(max_out_len);
   PRINT_OPTION(skip_batch_num);
   PRINT_OPTION(iterations);
-  PRINT_OPTION(one_file_params);
   PRINT_OPTION(output_file);
   PRINT_OPTION(paddle_num_threads);
   PRINT_OPTION(profile);
@@ -264,12 +247,7 @@ void PrintInfo() {
 }
 
 void PrepareConfig(contrib::AnalysisConfig& config) {
-  if (FLAGS_one_file_params) {
-    config.param_file = FLAGS_infer_model + "/params";
-    config.prog_file = FLAGS_infer_model + "/model";
-  } else {
-    config.model_dir = FLAGS_infer_model;
-  }
+  config.model_dir = FLAGS_infer_model;
   config.use_gpu = false;
   config.device = 0;
   config.enable_ir_optim = !FLAGS_skip_passes;
@@ -305,7 +283,7 @@ void PrepareConfig(contrib::AnalysisConfig& config) {
 
 void Main() {
   PrintInfo();
-  // Test variables and call everything
+  std::ofstream file {FLAGS_output_file};
   if (FLAGS_batch_size <= 0)
     throw std::invalid_argument(
         "The batch_size option is less than or equal to 0.");
@@ -391,7 +369,7 @@ void Main() {
     // read next batch of data
     if (i > 0 && !FLAGS_use_fake_data) {
       if (!ReadNextBatch(input[0], input[1], input[2], input[3], input[4], input[5], reader)) {
-        std::cout << "No more full batches. Stopping." << std::endl;
+        std::cout << "\n Less than one batch of data. Stopping." << std::endl;
         break;
       }
     }
