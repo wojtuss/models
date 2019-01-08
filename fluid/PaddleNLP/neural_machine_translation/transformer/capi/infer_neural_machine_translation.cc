@@ -12,10 +12,10 @@
 // limitations under the License.
 
 #include <gflags/gflags.h>
+#include <stdio.h>
 #include <chrono>
 #include <fstream>
 #include <iostream>
-#include <stdio.h>
 #include <map>
 #include <random>
 #include <string>
@@ -96,7 +96,7 @@ void PrintOutput(const std::vector<paddle::PaddleTensor>& output,
     auto data_end = ids_data + sub_end;
     std::vector<int64_t> indices(data_start, data_end);
     std::string sentence = reader->convert_to_sentence(indices);
-    //std::cout << sentence << std::endl;
+    // std::cout << sentence << std::endl;
     ofile << sentence << std::endl;
   }
   ofile.close();
@@ -118,11 +118,11 @@ void copy_vector_of_vector(const std::vector<std::vector<T>>& src_v_v,
 }
 
 bool ReadNextBatch(PaddleTensor& trg_word_tensor,
-									 PaddleTensor& src_word_tensor,
-									 PaddleTensor& src_slf_attn_bias_tensor,
-									 PaddleTensor& src_pos_tensor,
-									 PaddleTensor& trg_src_attn_bias_tensor,
-									 PaddleTensor& init_score_tensor,
+                   PaddleTensor& src_word_tensor,
+                   PaddleTensor& src_slf_attn_bias_tensor,
+                   PaddleTensor& src_pos_tensor,
+                   PaddleTensor& trg_src_attn_bias_tensor,
+                   PaddleTensor& init_score_tensor,
                    std::unique_ptr<DataReader>& reader) {
   std::vector<std::vector<int64_t>> inst_data;
   std::vector<std::vector<int64_t>> inst_pos;
@@ -156,13 +156,15 @@ bool ReadNextBatch(PaddleTensor& trg_word_tensor,
 
   trg_src_attn_bias_tensor.shape = {
       FLAGS_batch_size, FLAGS_n_head, 1, max_length};
-  trg_src_attn_bias_tensor.data.Resize(FLAGS_batch_size * FLAGS_n_head *1 * max_length * sizeof(float));
+  trg_src_attn_bias_tensor.data.Resize(FLAGS_batch_size * FLAGS_n_head * 1 *
+                                       max_length * sizeof(float));
   trg_src_attn_bias_tensor.lod.clear();
   trg_src_attn_bias_tensor.dtype = PaddleDType::FLOAT32;
 
-  src_slf_attn_bias_tensor.shape = {FLAGS_batch_size, FLAGS_n_head, max_length, max_length};
-  src_slf_attn_bias_tensor.data.Resize(FLAGS_batch_size * FLAGS_n_head *max_length *
-                                        max_length * sizeof(float));
+  src_slf_attn_bias_tensor.shape = {
+      FLAGS_batch_size, FLAGS_n_head, max_length, max_length};
+  src_slf_attn_bias_tensor.data.Resize(FLAGS_batch_size * FLAGS_n_head *
+                                       max_length * max_length * sizeof(float));
   src_slf_attn_bias_tensor.lod.clear();
 
   src_slf_attn_bias_tensor.dtype = PaddleDType::FLOAT32;
@@ -176,7 +178,7 @@ bool ReadNextBatch(PaddleTensor& trg_word_tensor,
   for (int i = 0; i <= FLAGS_batch_size; i++) {
     tmplod.push_back(i);
   }
-	trg_word_tensor.lod={tmplod,tmplod};
+  trg_word_tensor.lod = {tmplod, tmplod};
   int64_t* trg_word_array = static_cast<int64_t*>(trg_word_tensor.data.data());
   for (int i = 0; i < FLAGS_batch_size; i++) {
     *trg_word_array++ = reader->bos_idx;
@@ -189,17 +191,18 @@ bool ReadNextBatch(PaddleTensor& trg_word_tensor,
   for (int i = 0; i < FLAGS_batch_size; i++) {
     *init_score_array++ = 0;
   }
-	init_score_tensor.lod={tmplod,tmplod};
+  init_score_tensor.lod = {tmplod, tmplod};
   int64_t* src_word_array = static_cast<int64_t*>(src_word_tensor.data.data());
   int64_t* src_pos_array = static_cast<int64_t*>(src_pos_tensor.data.data());
 
-  float* trg_src_attn_bias_array = static_cast<float*>(trg_src_attn_bias_tensor.data.data());
-  for (int i = 0; i< FLAGS_batch_size; i++){
-    for (int j = 0; j < reader->n_head ; j++){
-      std::copy(
-          slf_attn_bias_data[i].begin(),
-          slf_attn_bias_data[i].end(),
-          trg_src_attn_bias_array + i * reader->n_head * max_length + j * max_length);
+  float* trg_src_attn_bias_array =
+      static_cast<float*>(trg_src_attn_bias_tensor.data.data());
+  for (int i = 0; i < FLAGS_batch_size; i++) {
+    for (int j = 0; j < reader->n_head; j++) {
+      std::copy(slf_attn_bias_data[i].begin(),
+                slf_attn_bias_data[i].end(),
+                trg_src_attn_bias_array + i * reader->n_head * max_length +
+                    j * max_length);
     }
   }
 
@@ -208,10 +211,11 @@ bool ReadNextBatch(PaddleTensor& trg_word_tensor,
   // tile, batch_size*n_head*max_length*max_length
   for (int i = 0; i < FLAGS_batch_size; i++) {
     for (int j = 0; j < reader->n_head * max_length; j++) {
-      std::copy(
-          slf_attn_bias_data[i].begin(),
-          slf_attn_bias_data[i].end(),
-          src_slf_attn_bias_array + i * reader->n_head * max_length * max_length+ j * max_length);
+      std::copy(slf_attn_bias_data[i].begin(),
+                slf_attn_bias_data[i].end(),
+                src_slf_attn_bias_array +
+                    i * reader->n_head * max_length * max_length +
+                    j * max_length);
     }
   }
 
@@ -247,11 +251,10 @@ void PrintInfo() {
 }
 
 void PrepareConfig(contrib::AnalysisConfig& config) {
-  config.model_dir = FLAGS_infer_model;
-  config.use_gpu = false;
-  config.device = 0;
-  config.enable_ir_optim = !FLAGS_skip_passes;
-  config.specify_input_name = false;
+  config.SetModel(FLAGS_infer_model);
+  config.DisableGpu();
+  config.SwitchIrOptim(!FLAGS_skip_passes);
+  config.SwitchSpecifyInputNames(false);
   config.SetCpuMathLibraryNumThreads(FLAGS_paddle_num_threads);
   if (FLAGS_use_mkldnn) config.EnableMKLDNN();
 
@@ -283,7 +286,7 @@ void PrepareConfig(contrib::AnalysisConfig& config) {
 
 void Main() {
   PrintInfo();
-  std::ofstream file {FLAGS_output_file};
+  std::ofstream file{FLAGS_output_file};
   if (FLAGS_batch_size <= 0)
     throw std::invalid_argument(
         "The batch_size option is less than or equal to 0.");
@@ -358,17 +361,23 @@ void Main() {
   Timer timer, timer_total;
 
   // run prediction
-  for (int i = 0 ; i < FLAGS_iterations + FLAGS_skip_batch_num ; i++){
-    if (i == FLAGS_skip_batch_num){
+  for (int i = 0; i < FLAGS_iterations + FLAGS_skip_batch_num; i++) {
+    if (i == FLAGS_skip_batch_num) {
       timer_total.tic();
-      if (FLAGS_profile){
+      if (FLAGS_profile) {
         paddle::platform::ResetProfiler();
       }
     }
 
     // read next batch of data
     if (i > 0 && !FLAGS_use_fake_data) {
-      if (!ReadNextBatch(input[0], input[1], input[2], input[3], input[4], input[5], reader)) {
+      if (!ReadNextBatch(input[0],
+                         input[1],
+                         input[2],
+                         input[3],
+                         input[4],
+                         input[5],
+                         reader)) {
         std::cout << "\n Less than one batch of data. Stopping." << std::endl;
         break;
       }
@@ -376,11 +385,13 @@ void Main() {
     timer.tic();
     if (!predictor->Run(input, &output_slots))
       throw std::runtime_error("Prediction failed.");
-    
+
     double batch_time = timer.toc() / 1000;
-    std::string prefix= i < FLAGS_skip_batch_num ? " warm up batch num ": " profiling batch num ";
-    std::string midfix=  ", batch size " + std::to_string(FLAGS_batch_size);
-    std::cout << "\n+++" << prefix << i << midfix << ", batch time "<< batch_time << "+++";
+    std::string prefix = i < FLAGS_skip_batch_num ? " warm up batch num "
+                                                  : " profiling batch num ";
+    std::string midfix = ", batch size " + std::to_string(FLAGS_batch_size);
+    std::cout << "\n+++" << prefix << i << midfix << ", batch time "
+              << batch_time << "+++";
     PrintOutput(output_slots, FLAGS_output_file, reader);
   }
 
@@ -390,11 +401,10 @@ void Main() {
     paddle::platform::DisableProfiler(paddle::platform::EventSortingKey::kTotal,
                                       "/tmp/profiler");
   }
-  //double total_samples = FLAGS_iterations * FLAGS_batch_size;
-  double total_time = timer_total.toc()/1000;
+  // double total_samples = FLAGS_iterations * FLAGS_batch_size;
+  double total_time = timer_total.toc() / 1000;
   std::cout << "total profiling time:" << total_time << "\n";
-  //stats.Postprocess(total_time, total_samples);
-
+  // stats.Postprocess(total_time, total_samples);
 }
 
 }  // namespace paddle
