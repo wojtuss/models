@@ -40,8 +40,11 @@ If everything builds successfully, you can run the application:
         --model=<path_to_directory_with_model> \
         --use_mkldnn
 ```
+This will run the application with passes enabled for MKL-DNN mode.
 A bunch of .dot files will be generated, one after each pass.
 
-If you want to skip running all the passes, add the `--skip_passes` option to the command above. A model graph for the original model will be generated only.
+To run only passes for a model without MKL-DNN support, remove the `--use_mkldnn` option.
+
+To skip running all the passes, add the `--skip_passes` option to the command above. Only a single model graph for the original model will be generated.
 
 To run the application with a model which has parameters stored in a single file, add the `--one_file_params=1` option.
