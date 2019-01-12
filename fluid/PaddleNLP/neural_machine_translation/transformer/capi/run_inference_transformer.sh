@@ -14,8 +14,11 @@ cd build
   --profile=true \
   --beam_size=4 \
   --max_out_len=255 \
-  --iterations=3000  \
+  --iterations=3  \
   --skip_batch_num=0 \
-  --output_file=./output_file.txt \
+  --output_file=./output_file_bs1.txt \
+
+sed -r 's/(@@ )|(@@ ?$)//g' output_file_bs1.txt > output.tok.txt
+perl /home/li/data/mosesdecoder/scripts/generic/multi-bleu.perl  /home/li/data/wmt16_ende_data_bpe_clean/newstest2016.tok.de < output.tok.txt
 
 cd -

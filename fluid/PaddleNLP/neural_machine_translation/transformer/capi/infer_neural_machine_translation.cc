@@ -22,6 +22,7 @@
 #include "data_reader.h"
 #include "paddle/fluid/inference/paddle_inference_api.h"
 #include "paddle/fluid/platform/profiler.h"
+#include "stats.h"
 
 DEFINE_string(infer_model, "", "Directory of the inference model.");
 DEFINE_string(all_vocab_fpath,
@@ -334,6 +335,7 @@ void Main() {
                      " already exists and it will be used in append mode!\n";
   }
 
+  paddle::Stats stats(FLAGS_batch_size, FLAGS_skip_batch_num);
   std::unique_ptr<DataReader> reader;
 
   InitializeReader(reader);
@@ -393,18 +395,18 @@ void Main() {
     std::cout << "\n+++" << prefix << i << midfix << ", batch time "
               << batch_time << "+++";
     PrintOutput(output_slots, FLAGS_output_file, reader);
+    stats.GatherTime(batch_time, i);
   }
 
+  double total_samples = FLAGS_iterations * FLAGS_batch_size;
+  double total_time =  timer_total.toc() / 1000;
+  stats.Postprocess(total_time, total_samples);
 
   // disable profiler
   if (FLAGS_profile) {
     paddle::platform::DisableProfiler(paddle::platform::EventSortingKey::kTotal,
                                       "/tmp/profiler");
   }
-  // double total_samples = FLAGS_iterations * FLAGS_batch_size;
-  double total_time = timer_total.toc() / 1000;
-  std::cout << "total profiling time:" << total_time << "\n";
-  // stats.Postprocess(total_time, total_samples);
 }
 
 }  // namespace paddle
