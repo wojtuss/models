@@ -66,7 +66,7 @@ cd build
   --infer_model=/home/li/models/iter_100000.infer.model \
   --all_vocab_fpath=/home/li/data/wmt16_ende_data_bpe_clean/vocab_all.bpe.32000 \
   --test_file_path=/home/li/data/wmt16_ende_data_bpe_clean/newstest2016.tok.bpe.32000.en-de \
-  --batch_size=8 \
+  --batch_size=1 \
   --use_mkldnn=true \
   --skip_passes=false \
   --enable_graphviz=1 \
@@ -75,9 +75,12 @@ cd build
   --with_labels=false \
   --beam_size=4 \
   --max_out_len=255 \
-  --iterations=200000  \
+  --iterations=3000  \
   --skip_batch_num=0 \
-  --output_file=./output.txt \
+  --output_file=./output_file.txt \
+
+sed -r 's/(@@ )|(@@ ?$)//g' output_file.txt > output.tok.txt
+perl /home/li/data/mosesdecoder/scripts/generic/multi-bleu.perl  /home/li/data/wmt16_ende_data_bpe_clean/newstest2016.tok.de < output.tok.txt
 cd -
 ```
 To add profiling, use the `--profile` option.
@@ -87,13 +90,9 @@ To run inference without running passes, use option `--skip_passes`.
 To switch on or off mkldnn, use option `--use_mkldnn` 
 
 ## 6. Accuracy(BLEU) measurement
-Baidu provide BLEU = 33.06 as the translation score reference, refer to [https://github.intel.com/AIPG/paddle-models/blob/develop/fluid/PaddleNLP/neural_machine_translation/transformer/README_cn.md]
+Baidu provide BLEU = 33.64 for newstest2016, source: [https://github.intel.com/AIPG/paddle-models/blob/develop/fluid/PaddleNLP/neural_machine_translation/transformer/README_cn.md]
 
-The capi application generate translated output.txt file in folder build/, and then We generate BLEU score by  
-```
-sed -r 's/(@@ )|(@@ ?$)//g' output.txt > output.tok.txt
-perl /home/li/data/gen_data/mosesdecoder/scripts/generic/multi-bleu.perl  /home/li/data/gen_data/wmt16_ende_data/newstest2016.tok.de < output.tok.txt
-```
-We did inference of 2000 iterations(sentences), achieving BLEU score 33.86.
+I tested 3000 iterations(sentences), achieving accuracy:
+BLEU = 33.64, 64.6/39.7/27.1/19.0 (BP=0.992, ratio=0.992, hyp_len=61892, ref_len=62362)
 
 
