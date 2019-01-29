@@ -198,7 +198,7 @@ bool ReadNextBatch(PaddleTensor& input_data,
   return true;
 }
 
-void PrepareConfig(contrib::AnalysisConfig& config) {
+void PrepareConfig(AnalysisConfig& config) {
   if (FLAGS_one_file_params) {
     config.SetProgFile(FLAGS_infer_model + "/model");
     config.SetParamsFile(FLAGS_infer_model + "/params");
@@ -279,11 +279,12 @@ void Main() {
   }
 
   // configure predictor
-  contrib::AnalysisConfig config;
+  AnalysisConfig config;
   PrepareConfig(config);
 
-  auto predictor = CreatePaddlePredictor<contrib::AnalysisConfig,
-                                         PaddleEngineKind::kAnalysis>(config);
+  auto predictor =
+      CreatePaddlePredictor<AnalysisConfig, PaddleEngineKind::kAnalysis>(
+          config);
 
   if (FLAGS_profile) {
     auto pf_state = paddle::platform::ProfilerState::kCPU;
