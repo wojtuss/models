@@ -251,7 +251,7 @@ void PrintInfo() {
   std::cout << "--------------------------------------" << std::endl;
 }
 
-void PrepareConfig(nAnalysisConfig& config) {
+void PrepareConfig(AnalysisConfig& config) {
   config.SetModel(FLAGS_infer_model);
   config.DisableGpu();
   config.SwitchIrOptim(!FLAGS_skip_passes);
