@@ -251,7 +251,7 @@ void PrintInfo() {
   std::cout << "--------------------------------------" << std::endl;
 }
 
-void PrepareConfig(contrib::AnalysisConfig& config) {
+void PrepareConfig(nAnalysisConfig& config) {
   config.SetModel(FLAGS_infer_model);
   config.DisableGpu();
   config.SwitchIrOptim(!FLAGS_skip_passes);
@@ -347,10 +347,10 @@ void Main() {
     throw std::runtime_error("File contains less than one batch of data!\n");
 
   // configure predictor
-  contrib::AnalysisConfig config;
+  AnalysisConfig config;
   PrepareConfig(config);
 
-  auto predictor = CreatePaddlePredictor<contrib::AnalysisConfig,
+  auto predictor = CreatePaddlePredictor<AnalysisConfig,
                                          PaddleEngineKind::kAnalysis>(config);
 
   if (FLAGS_profile) {
