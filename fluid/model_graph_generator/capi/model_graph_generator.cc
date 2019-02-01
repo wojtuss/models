@@ -42,7 +42,7 @@ void PrintInfo() {
   std::cout << "--------------------------------------" << std::endl;
 }
 
-void PrepareConfig(contrib::AnalysisConfig& config) {
+void PrepareConfig(AnalysisConfig& config) {
   if (FLAGS_one_file_params) {
     config.SetProgFile(FLAGS_model + "/model");
     config.SetParamsFile(FLAGS_model + "/params");
@@ -94,11 +94,12 @@ void Main() {
     throw std::invalid_argument("The model directory does not exist.");
   }
 
-  contrib::AnalysisConfig config;
+  AnalysisConfig config;
   PrepareConfig(config);
 
-  auto predictor = CreatePaddlePredictor<contrib::AnalysisConfig,
-                                         PaddleEngineKind::kAnalysis>(config);
+  auto predictor =
+      CreatePaddlePredictor<AnalysisConfig, PaddleEngineKind::kAnalysis>(
+          config);
 }
 
 }  // namespace paddle
