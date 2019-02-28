@@ -15,6 +15,7 @@
 //#include "paddle/fluid/inference/analysis/analyzer.h"
 #include <gflags/gflags.h>
 #include <random>
+#include <chrono>
 #include "data_reader.h"
 #include "paddle/fluid/framework/ir/pass.h"
 #include "paddle/fluid/inference/paddle_inference_api.h"

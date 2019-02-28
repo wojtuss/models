@@ -17,6 +17,7 @@
 #include <map>
 #include <random>
 #include <string>
+#include <chrono>
 #include "data_reader.h"
 #include "paddle/fluid/inference/paddle_inference_api.h"
 #include "paddle/fluid/platform/profiler.h"
