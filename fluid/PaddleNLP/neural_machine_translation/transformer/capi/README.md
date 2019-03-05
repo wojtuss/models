@@ -39,19 +39,8 @@ make
 ```
 
 ## 4. Prepare data and models
-Download the data, models and mosesdecoder, run:
-```
-bash ../scripts/download_data_model.sh  
-```
-copy the \_\_model\_\_ file at [ PaddleNLP/neural_machine_translation/transformer/saved_model] to iter_100000.infer.model/ 
 
-model folder is iter_100000.infer.model/   
-
-data foler for inference is wmt16_ende_data_clean  
-
-mosesdecoder folder is mosesdecoder  
-
-Optional: model weights and data above is recently provided by Baidu, there are also formal dataset one could download via transformer/gen_data.sh, which include training dataset, but it is not needed in capi and python inference
+transformer/gen_data.sh
 
 ## 5. Run
 If everything built successfully, you can inference.
