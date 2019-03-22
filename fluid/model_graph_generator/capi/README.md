@@ -5,7 +5,7 @@ model graph tree.
 # How to build C-API application
 In order to build the application:
 1. build paddle.
-2. build paddle's target `fluid_lib_dist`.
+2. build paddle's target `inference_lib_dist`.
 3. build capi the `model_graph_generator` application.
 
 ## 1. Build paddle
@@ -18,10 +18,10 @@ cd build
 cmake .. -DWITH_DOC=OFF -DWITH_GPU=OFF -DWITH_DISTRIBUTE=OFF -DWITH_MKLDNN=ON -DWITH_GOLANG=OFF -DWITH_SWIG_PY=ON -DWITH_TESTING=ON -DCMAKE_BUILD_TYPE=Debug -DWITH_TIMER=OFF -DWITH_PROFILER=OFF -DWITH_FLUID_ONLY=ON -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
 make -j <num_cpu_cores>
 ```
-## 2. Build paddle's target `fluid_lib_dist`
-While still staying in `/path/to/Paddle/build`, build the target `fluid_lib_dist`:
+## 2. Build paddle's target `inference_lib_dist`
+While still staying in `/path/to/Paddle/build`, build the target `inference_lib_dist`:
 ```
-make -j <num_cpu_cores> fluid_lib_dist
+make -j <num_cpu_cores> inference_lib_dist
 ```
 Now a directory should exist in build directory named `fluid_install_dir`. Remember that path.
 ## 3. Build C-API model graph generator
