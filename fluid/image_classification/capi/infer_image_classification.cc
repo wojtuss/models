@@ -12,15 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//#include "paddle/fluid/inference/analysis/analyzer.h"
 #include <gflags/gflags.h>
-#include <random>
+#include <stdio.h>
 #include <chrono>
+#include <chrono>
+#include <random>
 #include "data_reader.h"
 #include "paddle/fluid/framework/ir/pass.h"
 #include "paddle/fluid/inference/paddle_inference_api.h"
 #include "paddle/fluid/platform/profiler.h"
 #include "stats.h"
+
 
 DEFINE_string(infer_model, "", "Directory of the inference model.");
 DEFINE_string(data_list, "", "Path to a file with a list of image files.");
@@ -30,6 +32,7 @@ DEFINE_int32(iterations, 1, "How many times to repeat run.");
 DEFINE_int32(skip_batch_num, 0, "How many minibatches to skip in statistics.");
 DEFINE_bool(use_fake_data, false, "Use fake data (1,2,...).");
 DEFINE_bool(use_mkldnn, false, "Use MKL-DNN.");
+DEFINE_bool(use_int8, false, "Apply INT8 optimization.");
 DEFINE_bool(skip_passes, false, "Skip running passes.");
 DEFINE_bool(enable_graphviz,
             false,
@@ -53,6 +56,15 @@ DEFINE_int32(crop_size,
              224,
              "Resized images are cropped to crop_size x crop_size.");
 DEFINE_int32(channels, 3, "Width of the image.");
+DEFINE_string(
+    calibration_data_list,
+    "",
+    "Path to a file with a list of image files for int8 calibration.");
+DEFINE_string(calibration_data_dir,
+              "",
+              "Path to a directory with image files for int8 calibration.");
+DEFINE_int32(calibration_batch_size, 50, "Batch size for int8 calibration.");
+DEFINE_bool(convert_to_rgb, true, "Convert images from BGR to RGB.");
 
 namespace {
 class Timer {
@@ -100,6 +112,10 @@ void PrintInfo() {
   PRINT_OPTION(use_fake_data);
   PRINT_OPTION(use_mkldnn);
   PRINT_OPTION(with_labels);
+  PRINT_OPTION(use_int8);
+  PRINT_OPTION(calibration_batch_size);
+  PRINT_OPTION(calibration_data_dir);
+  PRINT_OPTION(calibration_data_list);
   std::cout << "--------------------------------------" << std::endl;
 }
 
@@ -112,9 +128,9 @@ size_t Count(const std::vector<int>& shapevec) {
   return sum;
 }
 
-paddle::PaddleTensor DefineInputData() {
+paddle::PaddleTensor DefineInputData(int batch_size) {
   std::vector<int> shape;
-  shape.push_back(FLAGS_batch_size);
+  shape.push_back(batch_size);
   shape.push_back(FLAGS_channels);
   shape.push_back(FLAGS_crop_size);
   shape.push_back(FLAGS_crop_size);
@@ -126,11 +142,11 @@ paddle::PaddleTensor DefineInputData() {
   return data;
 }
 
-paddle::PaddleTensor DefineInputLabels() {
+paddle::PaddleTensor DefineInputLabels(int batch_size) {
   paddle::PaddleTensor labels;
   labels.name = "yy";
-  labels.shape = std::vector<int>({FLAGS_batch_size, 1});
-  labels.data.Resize(FLAGS_batch_size * sizeof(int64_t));
+  labels.shape = std::vector<int>({batch_size, 1});
+  labels.data.Resize(batch_size * sizeof(int64_t));
   labels.dtype = paddle::PaddleDType::INT64;
   return labels;
 }
@@ -165,25 +181,35 @@ void CreateFakeData(PaddleTensor& input_data, PaddleTensor& input_labels) {
   }
 }
 
-void InitializeReader(std::unique_ptr<DataReader>& reader,
-                      bool convert_to_rgb) {
+void InitializeReader(std::unique_ptr<DataReader>& reader) {
   reader.reset(new DataReader(FLAGS_data_list,
                               FLAGS_data_dir,
                               FLAGS_resize_size,
                               FLAGS_crop_size,
                               FLAGS_channels,
-                              convert_to_rgb));
+                              FLAGS_convert_to_rgb));
+  if (!reader->SetSeparator('\t')) reader->SetSeparator(' ');
+}
+
+void InitializeCalibrationReader(std::unique_ptr<DataReader>& reader) {
+  reader.reset(new DataReader(FLAGS_calibration_data_list,
+                              FLAGS_calibration_data_dir,
+                              FLAGS_resize_size,
+                              FLAGS_crop_size,
+                              FLAGS_channels,
+                              FLAGS_convert_to_rgb));
   if (!reader->SetSeparator('\t')) reader->SetSeparator(' ');
 }
 
 bool ReadNextBatch(PaddleTensor& input_data,
                    PaddleTensor& input_labels,
-                   std::unique_ptr<DataReader>& reader) {
+                   std::unique_ptr<DataReader>& reader,
+                   int batch_size) {
   return reader->NextBatch(static_cast<float*>(input_data.data.data()),
                            FLAGS_with_labels
                                ? static_cast<int64_t*>(input_labels.data.data())
                                : nullptr,
-                           FLAGS_batch_size,
+                           batch_size,
                            FLAGS_debug_display_images);
 }
 
@@ -222,9 +248,44 @@ void PrepareConfig(AnalysisConfig& config) {
     config.pass_builder()->AppendPass("conv_bn_fuse_pass");
     config.pass_builder()->AppendPass("fc_fuse_pass");
   }
-
-  if (FLAGS_enable_graphviz) config.pass_builder()->TurnOnDebug();
 }
+
+void PrepareQuantizerConfig(AnalysisConfig& config) {
+  config.EnableMkldnnQuantizer();
+  // std::unordered_set<std::string> quantize_operators({"conv2d", "pool2d"});
+  auto qconfig = config.mkldnn_quantizer_config();
+  // qconfig->SetEnabledOpTypes(quantize_operators);
+  // qconfig->SetScaleAlgo("conv2d", "Input", ScaleAlgo::MAX);
+  // qconfig->SetScaleAlgo("conv2d", "Bias", ScaleAlgo::NONE);
+  // qconfig->SetScaleAlgo("conv2d", "Filter", ScaleAlgo::MAX_CH);
+  // qconfig->SetScaleAlgo("conv2d", "Output", ScaleAlgo::NONE);
+
+  PaddleTensor input_data = DefineInputData(FLAGS_calibration_batch_size);
+  PaddleTensor input_labels = DefineInputLabels(FLAGS_calibration_batch_size);
+
+  if (FLAGS_use_fake_data) {
+    CreateFakeData(input_data, input_labels);
+  } else {
+    std::unique_ptr<DataReader> reader;
+    InitializeCalibrationReader(reader);
+
+    if (!ReadNextBatch(
+            input_data, input_labels, reader, FLAGS_calibration_batch_size)) {
+      throw std::runtime_error(
+          "Batch size cannot be bigger than dataset size.");
+    }
+  }
+
+  if (FLAGS_with_labels)
+    qconfig->SetWarmupData(std::make_shared<std::vector<PaddleTensor>>(
+        std::vector<PaddleTensor>{input_data, input_labels}));
+  else
+    qconfig->SetWarmupData(std::make_shared<std::vector<PaddleTensor>>(
+        std::vector<PaddleTensor>{input_data}));
+
+  qconfig->SetWarmupBatchSize(FLAGS_calibration_batch_size);
+}
+
 
 void Main() {
   PrintInfo();
@@ -247,19 +308,18 @@ void Main() {
     std::cout << "You are using fake data - ignore the accuracy values."
               << std::endl;
 
-  paddle::PaddleTensor input_data = DefineInputData();
-  paddle::PaddleTensor input_labels = DefineInputLabels();
+  paddle::PaddleTensor input_data = DefineInputData(FLAGS_batch_size);
+  paddle::PaddleTensor input_labels = DefineInputLabels(FLAGS_batch_size);
 
   // reader instance for real data
   std::unique_ptr<DataReader> reader;
-  bool convert_to_rgb = true;
 
   // read the first batch
   if (FLAGS_use_fake_data) {
     CreateFakeData(input_data, input_labels);
   } else {
-    InitializeReader(reader, convert_to_rgb);
-    if (!ReadNextBatch(input_data, input_labels, reader)) {
+    InitializeReader(reader);
+    if (!ReadNextBatch(input_data, input_labels, reader, FLAGS_batch_size)) {
       throw std::invalid_argument(
           "Batch size cannot be bigger than dataset size.");
     }
@@ -268,10 +328,18 @@ void Main() {
   // configure predictor
   AnalysisConfig config;
   PrepareConfig(config);
+  if (FLAGS_use_int8) {
+    PrepareQuantizerConfig(config);
+  }
+  if (FLAGS_enable_graphviz) {
+    config.SwitchIrDebug();
+  }
 
   auto predictor =
       CreatePaddlePredictor<AnalysisConfig, PaddleEngineKind::kAnalysis>(
           config);
+
+  std::cout << "Predictor created!" << std::endl;
 
   if (FLAGS_profile) {
     auto pf_state = paddle::platform::ProfilerState::kCPU;
@@ -296,7 +364,7 @@ void Main() {
 
     // read next batch of data
     if (i > 0 && !FLAGS_use_fake_data) {
-      if (!ReadNextBatch(input_data, input_labels, reader)) {
+      if (!ReadNextBatch(input_data, input_labels, reader, FLAGS_batch_size)) {
         std::cout << "No more full batches. Stopping." << std::endl;
         break;
       }
@@ -305,7 +373,7 @@ void Main() {
     // display images from batch if requested
     if (FLAGS_debug_display_images)
       DataReader::drawImages(static_cast<float*>(input_data.data.data()),
-                             convert_to_rgb,
+                             FLAGS_convert_to_rgb,
                              FLAGS_batch_size,
                              FLAGS_channels,
                              FLAGS_crop_size,
