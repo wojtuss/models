@@ -231,7 +231,6 @@ void PrepareConfig(AnalysisConfig& config) {
     config.pass_builder()->DeletePass(i);
 
   // add passes
-  config.pass_builder()->AppendPass("infer_clean_graph_pass");
   if (FLAGS_use_mkldnn) {
     // add passes to execute with MKL-DNN
     config.pass_builder()->AppendPass("mkldnn_placement_pass");
@@ -241,6 +240,7 @@ void PrepareConfig(AnalysisConfig& config) {
     config.pass_builder()->AppendPass("conv_bias_mkldnn_fuse_pass");
     config.pass_builder()->AppendPass("conv_elementwise_add_mkldnn_fuse_pass");
     config.pass_builder()->AppendPass("conv_relu_mkldnn_fuse_pass");
+    config.pass_builder()->AppendPass("conv_relu6_mkldnn_fuse_pass");
     config.pass_builder()->AppendPass("fc_fuse_pass");
     config.pass_builder()->AppendPass("is_test_pass");
   } else {

@@ -14,10 +14,10 @@
 
 //#include "paddle/fluid/inference/analysis/analyzer.h"
 #include <gflags/gflags.h>
+#include <chrono>
 #include <map>
 #include <random>
 #include <string>
-#include <chrono>
 #include "data_reader.h"
 #include "paddle/fluid/inference/paddle_inference_api.h"
 #include "paddle/fluid/platform/profiler.h"
@@ -217,7 +217,6 @@ void PrepareConfig(AnalysisConfig& config) {
     config.pass_builder()->DeletePass(i);
 
   // add passes
-  config.pass_builder()->AppendPass("infer_clean_graph_pass");
   if (!FLAGS_skip_passes) {
     if (FLAGS_use_mkldnn) {
       // add passes to execute with MKL-DNN
