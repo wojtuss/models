@@ -214,40 +214,13 @@ bool ReadNextBatch(PaddleTensor& input_data,
 }
 
 void PrepareConfig(AnalysisConfig& config) {
-  if (FLAGS_one_file_params) {
-    config.SetProgFile(FLAGS_infer_model + "/model");
-    config.SetParamsFile(FLAGS_infer_model + "/params");
-  } else {
-    config.SetModel(FLAGS_infer_model);
-  }
+  config.SetModel(FLAGS_infer_model);
   config.DisableGpu();
   config.SwitchIrOptim(!FLAGS_skip_passes);
   config.SwitchSpecifyInputNames(false);
   config.SetCpuMathLibraryNumThreads(FLAGS_paddle_num_threads);
   if (FLAGS_use_mkldnn) config.EnableMKLDNN();
-
-  // remove all passes so that we can add them in correct order
-  for (int i = config.pass_builder()->AllPasses().size() - 1; i >= 0; i--)
-    config.pass_builder()->DeletePass(i);
-
-  // add passes
-  if (FLAGS_use_mkldnn) {
-    // add passes to execute with MKL-DNN
-    config.pass_builder()->AppendPass("mkldnn_placement_pass");
-    config.pass_builder()->AppendPass("depthwise_conv_mkldnn_pass");
-    config.pass_builder()->AppendPass("conv_bn_fuse_pass");
-    config.pass_builder()->AppendPass("conv_eltwiseadd_bn_fuse_pass");
-    config.pass_builder()->AppendPass("conv_bias_mkldnn_fuse_pass");
-    config.pass_builder()->AppendPass("conv_elementwise_add_mkldnn_fuse_pass");
-    config.pass_builder()->AppendPass("conv_relu_mkldnn_fuse_pass");
-    config.pass_builder()->AppendPass("conv_relu6_mkldnn_fuse_pass");
-    config.pass_builder()->AppendPass("fc_fuse_pass");
-    config.pass_builder()->AppendPass("is_test_pass");
-  } else {
-    // add passes to execute keeping the order - without MKL-DNN
-    config.pass_builder()->AppendPass("conv_bn_fuse_pass");
-    config.pass_builder()->AppendPass("fc_fuse_pass");
-  }
+  config.pass_builder()->AppendPass("fc_mkldnn_pass");
 }
 
 void PrepareQuantizerConfig(AnalysisConfig& config) {
